@@ -1,104 +1,103 @@
 <template>
-  <div class="routes">
-    <h2>🛤️ 线路管理</h2>
+<div class="routes">
+  <h2>🛣️ 线路管理</h2>
+  <div class="route-tabs">
+    <button
+      v-for="tab in tabs"
+      :key="tab.id"
+      :class="{ active: currentTab === tab.id, locked: tab.locked }"
+      @click="!tab.locked && (currentTab = tab.id)"
+    >
+      {{ tab.icon }} {{ tab.name }}
+      <span v-if="tab.locked" class="lock-icon">🔒</span>
+    </button>
+  </div>
 
-    <div class="route-tabs">
+  <div class="city-selector">
+    <h3>选择城市</h3>
+    <div class="city-buttons">
       <button
-        v-for="tab in tabs"
-        :key="tab.id"
-        :class="{ active: currentTab === tab.id, locked: tab.locked }"
-        @click="!tab.locked && (currentTab = tab.id)"
+        v-for="city in availableCities"
+        :key="city.id"
+        :class="{ active: selectedCity === city.id }"
+        @click="selectedCity = city.id"
       >
-        {{ tab.icon }} {{ tab.name }}
-        <span v-if="tab.locked" class="lock-icon">🔒</span>
+        {{ city.name }}
       </button>
     </div>
+  </div>
 
-    <div class="city-selector">
-      <h3>选择城市</h3>
-      <div class="city-buttons">
-        <button
-          v-for="city in availableCities"
-          :key="city.id"
-          :class="{ active: selectedCity === city.id }"
-          @click="selectedCity = city.id"
-        >
-          {{ city.name }}
-        </button>
-      </div>
+  <div class="routes-content">
+    <div v-if="availableRoutes.length === 0" class="empty-state">
+      <p>该城市暂无可用线路</p>
     </div>
 
-    <div class="routes-content">
-      <div v-if="availableRoutes.length === 0" class="empty-state">
-        <p>该城市暂无可用线路</p>
-      </div>
+    <div v-else class="route-list">
+      <div v-for="route in availableRoutes" :key="route.id" class="route-card">
+        <div class="route-header">
+          <h4>{{ route.name }}</h4>
+          <span class="route-fare">💴 ¥{{ route.fare }}</span>
+        </div>
 
-      <div v-else class="route-list">
-        <div v-for="route in availableRoutes" :key="route.id" class="route-card">
-          <div class="route-header">
-            <h4>{{ route.name }}</h4>
-            <span class="route-fare">💴 ¥{{ route.fare }}</span>
-          </div>
+        <div class="route-start-end" v-if="getRouteStartEnd(route)">
+          <span class="start-end-text">{{ getRouteStartEnd(route) }}</span>
+        </div>
 
-          <div class="route-start-end" v-if="getRouteStartEnd(route)">
-            <span class="start-end-text">{{ getRouteStartEnd(route) }}</span>
-          </div>
-
-          <div class="route-stops">
-            <div class="stop-list">
-              <span
-                v-for="(stop, index) in getRouteStops(route)"
-                :key="index"
-                class="stop-tag"
-              >
-                {{ stop }}
-              </span>
-            </div>
-          </div>
-
-          <div class="route-footer">
-            <span v-if="route.requiredLevel > companyLevel" class="level-requirement">
-              需要 {{ route.requiredLevel }} 级
-            </span>
-            <span v-else-if="isRouteActive(route.id)" class="active-status">
-              ✅ 已开通
-            </span>
-            <button
-              v-else
-              class="create-btn"
-              :disabled="!canCreateRoute(route)"
-              @click="createRoute(route)"
+        <div class="route-stops">
+          <div class="stop-list">
+            <span
+              v-for="(stop, index) in getRouteStops(route)"
+              :key="index"
+              class="stop-tag"
             >
-              开通线路
-            </button>
+              {{ stop }}
+            </span>
           </div>
         </div>
-      </div>
-    </div>
 
-    <div class="active-routes">
-      <h3>已开通线路</h3>
-      <div v-if="activeRoutesList.length === 0" class="empty-state">
-        <p>暂无已开通线路</p>
-      </div>
-      <div v-else class="active-list">
-        <div
-          v-for="routeId in activeRoutesList"
-          :key="routeId"
-          class="active-item"
-          :class="`type-${getRouteInfo(routeId)?.type || 'default'}`"
-        >
-          <div class="route-main">
-            <span class="route-name">{{ getRouteInfo(routeId)?.name || routeId }}</span>
-            <span class="route-start-end" v-if="getRouteInfo(routeId)">
-              {{ getRouteStartEnd(getRouteInfo(routeId)) }}
-            </span>
-          </div>
-          <span class="route-type">{{ getRouteTypeIcon(routeId) }}</span>
+        <div class="route-footer">
+          <span v-if="route.requiredLevel > companyLevel" class="level-requirement">
+            需要 {{ route.requiredLevel }} 级
+          </span>
+          <span v-else-if="isRouteActive(route.id)" class="active-status">
+            已开通
+          </span>
+          <button
+            v-else
+            class="create-btn"
+            :disabled="!canCreateRoute(route)"
+            @click="createRoute(route)"
+          >
+            开通线路
+          </button>
         </div>
       </div>
     </div>
   </div>
+
+  <div class="active-routes">
+    <h3>已开通线路</h3>
+    <div v-if="activeRoutesList.length === 0" class="empty-state">
+      <p>暂无已开通线路</p>
+    </div>
+    <div v-else class="active-list">
+      <div
+        v-for="routeId in activeRoutesList"
+        :key="routeId"
+        class="active-item"
+        :class="`type-${getRouteInfo(routeId)?.type || 'default'}`"
+      >
+        <div class="route-main">
+          <span class="route-name">{{ getRouteInfo(routeId)?.name || routeId }}</span>
+          <span class="route-start-end" v-if="getRouteInfo(routeId)">
+            {{ getRouteStartEnd(getRouteInfo(routeId)) }}
+          </span>
+        </div>
+        <span class="route-type">{{ getRouteTypeIcon(routeId) }}</span>
+      </div>
+    </div>
+  </div>
+</div>
 </template>
 
 <script>
@@ -127,9 +126,9 @@ export default {
     const metros = computed(() => store.state.metros)
     const highSpeedRails = computed(() => store.state.highSpeedRails)
 
-    // 线路类型标签
     const tabs = computed(() => [
-      { id: 'bus', name: '巴士线路', icon: '🚌', locked: false },
+      { id: 'bus', name: '城市巴士', icon: '🚌', locked: false },
+      { id: 'coach', name: '长途巴士', icon: '🚍', locked: false },
       { id: 'plane', name: '飞机航线', icon: '✈️', locked: companyLevel.value < 6 },
       { id: 'metro', name: '地铁线路', icon: '🚇', locked: companyLevel.value < 10 },
       { id: 'hsr', name: '高铁线路', icon: '🚄', locked: companyLevel.value < 20 }
@@ -179,16 +178,17 @@ export default {
       const route = getRouteInfo(routeId)
       const icons = {
         bus: '🚌',
+        coach: '🚍',
         plane: '✈️',
         metro: '🚇',
         hsr: '🚄'
       }
-      return icons[route?.type] || '🚗'
+      return icons[route?.type] || '🛣️'
     }
 
     const getRouteStartEnd = (route) => {
       if (!route) return ''
-      if (route.type === 'bus' && route.stops?.outbound?.length) {
+      if (route.type === 'bus' || route.type === 'coach' && route.stops?.outbound?.length) {
         const start = route.stops.outbound[0]
         const end = route.stops.outbound[route.stops.outbound.length - 1]
         return `${start} ↔ ${end}`
@@ -211,9 +211,15 @@ export default {
       if (isRouteActive(route.id)) return false
 
       if (route.type === 'bus') {
-        const hasIdleBus = buses.value.find(b => !b.routeId)
+        const hasIdleBus = buses.value.find(b => !b.routeId && b.busType === 'city')
         const hasAvailableDriver = store.getters.availableBusDrivers
         return hasIdleBus && hasAvailableDriver
+      }
+
+      if (route.type === 'coach') {
+        const hasIdleCoach = buses.value.find(b => !b.routeId && b.busType === 'coach')
+        const hasAvailableDriver = store.getters.availableCoachDrivers
+        return hasIdleCoach && hasAvailableDriver
       }
 
       if (route.type === 'plane') {
@@ -241,15 +247,31 @@ export default {
       return false
     }
 
-
     const createRoute = (route) => {
       if (!canCreateRoute(route)) return
       store.commit('ADD_ROUTE', { type: currentTab.value, routeId: route.id })
+      
       if (route.type === 'bus') {
-        const idleBus = buses.value.find(b => !b.routeId)
+        const idleBus = buses.value.find(b => !b.routeId && b.busType === 'city')
         if (idleBus) {
           store.commit('UPDATE_BUS', {
             id: idleBus.id,
+            updates: {
+              routeId: route.id,
+              status: 'running',
+              currentStopIndex: 0,
+              progress: 0,
+              direction: 'outbound'
+            }
+          })
+        }
+      }
+
+      if (route.type === 'coach') {
+        const idleCoach = buses.value.find(b => !b.routeId && b.busType === 'coach')
+        if (idleCoach) {
+          store.commit('UPDATE_BUS', {
+            id: idleCoach.id,
             updates: {
               routeId: route.id,
               status: 'running',
@@ -436,7 +458,7 @@ export default {
 .route-header {
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-start;
   margin-bottom: 8px;
 }
 
@@ -447,7 +469,7 @@ export default {
 }
 
 .route-fare {
-  font-size: 16px;
+  font-size: 18px;
   font-weight: bold;
   color: #667eea;
 }
@@ -582,6 +604,10 @@ export default {
 
 .active-item.type-bus {
   background: linear-gradient(135deg, #4caf50 0%, #66bb6a 100%);
+}
+
+.active-item.type-coach {
+  background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
 }
 
 .active-item.type-plane {

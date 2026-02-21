@@ -1,80 +1,84 @@
 <template>
-  <div class="hsr-status">
-    <h2>🚄 高铁运行状况</h2>
+<div class="hsr-status">
+  <h2>🚄 高铁运行状况</h2>
+  <div v-if="companyLevel < 20" class="locked-state">
+    <div class="locked-icon">🔒</div>
+    <h3>高铁系统未解锁</h3>
+    <p>公司等级达到 20 级解锁高铁系统</p>
+    <p class="current-level">当前等级: {{ companyLevel }}</p>
+  </div>
 
-    <div v-if="companyLevel < 20" class="locked-state">
-      <div class="locked-icon">🔒</div>
-      <h3>高铁系统未解锁</h3>
-      <p>公司等级达到 20 级解锁高铁系统</p>
-      <p class="current-level">当前等级: {{ companyLevel }}</p>
-    </div>
+  <div v-else-if="highSpeedRails.length === 0" class="empty-state">
+    <p>暂无高铁列车,快去商店购买吧!</p>
+  </div>
 
-    <div v-else-if="highSpeedRails.length === 0" class="empty-state">
-      <p>暂无高铁列车,快去商店购买吧!</p>
-    </div>
+  <div v-else class="hsr-list">
+    <div v-for="hsr in highSpeedRails" :key="hsr.id" class="hsr-card">
+      <div class="hsr-header">
+        <h3>{{ getHSRModel(hsr.modelId)?.name || '未知车型' }}</h3>
+        <span class="status-badge" :class="hsr.status">
+          {{ hsr.status === 'running' ? '🚄 运行中' : '🛑 到站停车' }}
+        </span>
+      </div>
 
-    <div v-else class="hsr-list">
-      <div v-for="hsr in highSpeedRails" :key="hsr.id" class="hsr-card">
-        <div class="hsr-header">
-          <h3>{{ getHSRModel(hsr.modelId)?.name || '未知车型' }}</h3>
-          <span class="status-badge" :class="hsr.status">
-            {{ hsr.status === 'running' ? '🚄 运行中' : '⏸️ 停运' }}
-          </span>
+      <div class="hsr-info">
+        <div class="info-row">
+          <span class="info-label">📍 线路</span>
+          <span class="info-value">{{ getRouteName(hsr.routeId) }}</span>
         </div>
 
-        <div class="hsr-info">
-          <div class="info-row">
-            <span class="info-label">📍 线路</span>
-            <span class="info-value">{{ getRouteName(hsr.routeId) }}</span>
-          </div>
+        <div class="info-row" v-if="hsr.routeId">
+          <span class="info-label">🏁 下一站</span>
+          <span class="info-value">{{ getNextStop(hsr) }}</span>
+        </div>
 
-          <div class="info-row" v-if="hsr.routeId">
-            <span class="info-label">🏪 当前站点</span>
-            <span class="info-value">{{ getCurrentStop(hsr) }}</span>
-          </div>
+        <div class="info-row" v-if="hsr.status === 'stopped'">
+          <span class="info-label">⏱️ 发车倒计时</span>
+          <span class="info-value countdown">{{ hsr.stopCountdown }} 秒</span>
+        </div>
 
-          <div class="info-row">
-            <span class="info-label">👥 乘客</span>
-            <span class="info-value">{{ hsr.passengers }} / {{ getHSRModel(hsr.modelId)?.capacity || 0 }}</span>
-          </div>
+        <div class="info-row">
+          <span class="info-label">👥 乘客</span>
+          <span class="info-value">{{ hsr.passengers }} / {{ getHSRModel(hsr.modelId)?.capacity || 0 }}</span>
+        </div>
 
-          <div class="info-row">
-            <span class="info-label">🚀 速度</span>
-            <span class="info-value">{{ getHSRModel(hsr.modelId)?.speed || 0 }} km/h</span>
-          </div>
+        <div class="info-row">
+          <span class="info-label">🚀 速度</span>
+          <span class="info-value">{{ getHSRModel(hsr.modelId)?.speed || 0 }} km/h</span>
+        </div>
 
-          <div class="progress-section">
-            <div class="progress-label">
-              <span>🛤️ 行程进度</span>
-              <span>{{ Math.floor(hsr.progress) }}%</span>
+        <div class="progress-section">
+          <div class="progress-label">
+            <span>📈 到下一站进度</span>
+            <span>{{ Math.floor(hsr.progress) }}%</span>
+          </div>
+          <div class="progress-bar">
+            <div class="progress-fill" :style="{ width: `${hsr.progress}%` }"></div>
+          </div>
+        </div>
+
+        <div class="resource-bars">
+          <div class="resource-bar">
+            <span class="resource-label">🧹 清洁度</span>
+            <div class="bar-container">
+              <div class="bar-fill cleanliness" :style="{ width: `${hsr.cleanliness}%` }"></div>
             </div>
-            <div class="progress-bar">
-              <div class="progress-fill" :style="{ width: `${hsr.progress}%` }"></div>
-            </div>
+            <span class="resource-value">{{ Math.floor(hsr.cleanliness) }}%</span>
           </div>
+        </div>
 
-          <div class="resource-bars">
-            <div class="resource-bar">
-              <span class="resource-label">🧹 清洁度</span>
-              <div class="bar-container">
-                <div class="bar-fill cleanliness" :style="{ width: `${hsr.cleanliness}%` }"></div>
-              </div>
-              <span class="resource-value">{{ Math.floor(hsr.cleanliness) }}%</span>
-            </div>
-          </div>
-
-          <div class="hsr-upgrades">
-            <span class="upgrade-tag" :class="{ active: hsr.hasEntertainment }">
-              🎬 娱乐系统
-            </span>
-            <span class="upgrade-tag" :class="{ active: hsr.hasWiFi }">
-              WiFi
-            </span>
-          </div>
+        <div class="hsr-upgrades">
+          <span class="upgrade-tag" :class="{ active: hsr.hasEntertainment }">
+            娱乐系统
+          </span>
+          <span class="upgrade-tag" :class="{ active: hsr.hasWiFi }">
+            WiFi
+          </span>
         </div>
       </div>
     </div>
   </div>
+</div>
 </template>
 
 <script>
@@ -103,7 +107,7 @@ export default {
       return route?.name || '未知线路'
     }
 
-    const getCurrentStop = (hsr) => {
+    const getNextStop = (hsr) => {
       if (!hsr.routeId) return '-'
       const route = getRoute(hsr.routeId)
       if (!route) return '-'
@@ -115,7 +119,7 @@ export default {
       highSpeedRails,
       getHSRModel,
       getRouteName,
-      getCurrentStop
+      getNextStop
     }
   }
 }
@@ -201,6 +205,11 @@ export default {
   color: white;
 }
 
+.status-badge.stopped {
+  background: #2196f3;
+  color: white;
+}
+
 .status-badge.idle {
   background: #ff9800;
   color: white;
@@ -226,6 +235,11 @@ export default {
 .info-value {
   color: #333;
   font-weight: 500;
+}
+
+.info-value.countdown {
+  color: #f5576c;
+  font-weight: bold;
 }
 
 .progress-section {

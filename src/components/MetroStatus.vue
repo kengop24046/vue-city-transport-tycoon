@@ -1,72 +1,76 @@
 <template>
-  <div class="metro-status">
-    <h2>🚇 地铁运行状况</h2>
+<div class="metro-status">
+  <h2>🚇 地铁运行状况</h2>
+  <div v-if="companyLevel < 10" class="locked-state">
+    <div class="locked-icon">🔒</div>
+    <h3>地铁系统未解锁</h3>
+    <p>公司等级达到 10 级解锁地铁系统</p>
+    <p class="current-level">当前等级: {{ companyLevel }}</p>
+  </div>
 
-    <div v-if="companyLevel < 10" class="locked-state">
-      <div class="locked-icon">🔒</div>
-      <h3>地铁系统未解锁</h3>
-      <p>公司等级达到 10 级解锁地铁系统</p>
-      <p class="current-level">当前等级: {{ companyLevel }}</p>
-    </div>
+  <div v-else-if="metros.length === 0" class="empty-state">
+    <p>暂无地铁列车,快去商店购买吧!</p>
+  </div>
 
-    <div v-else-if="metros.length === 0" class="empty-state">
-      <p>暂无地铁列车,快去商店购买吧!</p>
-    </div>
+  <div v-else class="metro-list">
+    <div v-for="metro in metros" :key="metro.id" class="metro-card">
+      <div class="metro-header">
+        <h3>{{ getMetroModel(metro.modelId)?.name || '未知车型' }}</h3>
+        <span class="status-badge" :class="metro.status">
+          {{ metro.status === 'running' ? '🚇 运行中' : '🛑 到站停车' }}
+        </span>
+      </div>
 
-    <div v-else class="metro-list">
-      <div v-for="metro in metros" :key="metro.id" class="metro-card">
-        <div class="metro-header">
-          <h3>{{ getMetroModel(metro.modelId)?.name || '未知车型' }}</h3>
-          <span class="status-badge" :class="metro.status">
-            {{ metro.status === 'running' ? '🚇 运行中' : '⏸️ 停运' }}
-          </span>
+      <div class="metro-info">
+        <div class="info-row">
+          <span class="info-label">📍 线路</span>
+          <span class="info-value">{{ getRouteName(metro.routeId) }}</span>
         </div>
 
-        <div class="metro-info">
-          <div class="info-row">
-            <span class="info-label">📍 线路</span>
-            <span class="info-value">{{ getRouteName(metro.routeId) }}</span>
-          </div>
+        <div class="info-row" v-if="metro.routeId">
+          <span class="info-label">🏁 下一站</span>
+          <span class="info-value">{{ getNextStop(metro) }}</span>
+        </div>
 
-          <div class="info-row" v-if="metro.routeId">
-            <span class="info-label">🏪 当前站点</span>
-            <span class="info-value">{{ getCurrentStop(metro) }}</span>
-          </div>
+        <div class="info-row" v-if="metro.status === 'stopped'">
+          <span class="info-label">⏱️ 发车倒计时</span>
+          <span class="info-value countdown">{{ metro.stopCountdown }} 秒</span>
+        </div>
 
-          <div class="info-row">
-            <span class="info-label">👥 乘客</span>
-            <span class="info-value">{{ metro.passengers }} / {{ getMetroModel(metro.modelId)?.capacity || 0 }}</span>
-          </div>
+        <div class="info-row">
+          <span class="info-label">👥 乘客</span>
+          <span class="info-value">{{ metro.passengers }} / {{ getMetroModel(metro.modelId)?.capacity || 0 }}</span>
+        </div>
 
-          <div class="progress-section">
-            <div class="progress-label">
-              <span>🛤️ 行程进度</span>
-              <span>{{ Math.floor(metro.progress) }}%</span>
+        <div class="progress-section">
+          <div class="progress-label">
+            <span>📈 到下一站进度</span>
+            <span>{{ Math.floor(metro.progress) }}%</span>
+          </div>
+          <div class="progress-bar">
+            <div class="progress-fill" :style="{ width: `${metro.progress}%` }"></div>
+          </div>
+        </div>
+
+        <div class="resource-bars">
+          <div class="resource-bar">
+            <span class="resource-label">🧹 清洁度</span>
+            <div class="bar-container">
+              <div class="bar-fill cleanliness" :style="{ width: `${metro.cleanliness}%` }"></div>
             </div>
-            <div class="progress-bar">
-              <div class="progress-fill" :style="{ width: `${metro.progress}%` }"></div>
-            </div>
+            <span class="resource-value">{{ Math.floor(metro.cleanliness) }}%</span>
           </div>
+        </div>
 
-          <div class="resource-bars">
-            <div class="resource-bar">
-              <span class="resource-label">🧹 清洁度</span>
-              <div class="bar-container">
-                <div class="bar-fill cleanliness" :style="{ width: `${metro.cleanliness}%` }"></div>
-              </div>
-              <span class="resource-value">{{ Math.floor(metro.cleanliness) }}%</span>
-            </div>
-          </div>
-
-          <div class="metro-upgrades">
-            <span class="upgrade-tag" :class="{ active: metro.hasWiFi }">
-              WiFi
-            </span>
-          </div>
+        <div class="metro-upgrades">
+          <span class="upgrade-tag" :class="{ active: metro.hasWiFi }">
+            WiFi
+          </span>
         </div>
       </div>
     </div>
   </div>
+</div>
 </template>
 
 <script>
@@ -95,7 +99,7 @@ export default {
       return route?.name || '未知线路'
     }
 
-    const getCurrentStop = (metro) => {
+    const getNextStop = (metro) => {
       if (!metro.routeId) return '-'
       const route = getRoute(metro.routeId)
       if (!route) return '-'
@@ -107,7 +111,7 @@ export default {
       metros,
       getMetroModel,
       getRouteName,
-      getCurrentStop
+      getNextStop
     }
   }
 }
@@ -193,6 +197,11 @@ export default {
   color: white;
 }
 
+.status-badge.stopped {
+  background: #2196f3;
+  color: white;
+}
+
 .status-badge.idle {
   background: #ff9800;
   color: white;
@@ -218,6 +227,11 @@ export default {
 .info-value {
   color: #333;
   font-weight: 500;
+}
+
+.info-value.countdown {
+  color: #f5576c;
+  font-weight: bold;
 }
 
 .progress-section {

@@ -41,6 +41,7 @@ const getInitialState = () => ({
   employees: {
     busDrivers: [
       { id: 1, name: '陈司机', salary: 3000, hired: true },
+      { id: 2, name: '李司机', salary: 3200, hired: true },
     ],
     pilots: [],
     flightAttendants: [],
@@ -57,9 +58,11 @@ const getInitialState = () => ({
   },
 
   buses: [
+    // 初始城市巴士
     {
       id: 1,
       modelId: 'yu_tong_e10',
+      busType: 'city',
       powerType: 'electric',
       routeId: 'macau_1',
       status: 'running',
@@ -68,6 +71,29 @@ const getInitialState = () => ({
       passengers: 0,
       battery: 100,
       fuel: 0,
+      cleanliness: 100,
+      needsCharge: false,
+      needsRefuel: false,
+      needsCleaning: false,
+      hasEntertainment: false,
+      hasWiFi: false,
+      direction: 'outbound',
+      stopCountdown: 0,
+      isAtTerminal: false
+    },
+    // 初始长途车
+    {
+      id: 2,
+      modelId: 'yu_tong_zk6122h',
+      busType: 'coach',
+      powerType: 'fuel',
+      routeId: 'macau_zhuhai_coach',
+      status: 'running',
+      currentStopIndex: 0,
+      progress: 0,
+      passengers: 0,
+      battery: 0,
+      fuel: 100,
       cleanliness: 100,
       needsCharge: false,
       needsRefuel: false,
@@ -92,6 +118,7 @@ const getInitialState = () => ({
 
   activeRoutes: {
     bus: ['macau_1'],
+    coach: ['macau_zhuhai_coach'],
     plane: [],
     metro: [],
     hsr: []
@@ -112,9 +139,15 @@ export default createStore({
 
   getters: {
     availableBusDrivers: (state) => {
-      const assignedBusCount = state.buses.filter(b => b.routeId).length
+      const assignedBusCount = state.buses.filter(b => b.routeId && b.busType === 'city').length
       const hiredDriversCount = state.employees.busDrivers.filter(d => d.hired).length
       return hiredDriversCount > assignedBusCount
+    },
+    availableCoachDrivers: (state) => {
+      const assignedCoachCount = state.buses.filter(b => b.routeId && b.busType === 'coach').length
+      const hiredDriversCount = state.employees.busDrivers.filter(d => d.hired).length
+      const hiredConductorsCount = state.employees.conductors.filter(d => d.hired).length
+      return hiredDriversCount > assignedCoachCount && hiredConductorsCount > assignedCoachCount
     },
 
     availablePilots: (state) => {
@@ -241,7 +274,7 @@ export default createStore({
       })
     },
 
-    // 巴士相关
+    // 巴士/长途车相关
     ADD_BUS(state, bus) {
       const model = busModels.find(m => m.id === bus.modelId)
       const initBase = {
@@ -257,7 +290,8 @@ export default createStore({
         direction: 'outbound',
         stopCountdown: 0,
         isAtTerminal: false,
-        ...bus
+        ...bus,
+        busType: model.busType || 'city'
       }
       const initData = model.powerType === 'electric'
         ? { ...initBase, battery: 100, fuel: 0, needsCharge: false, needsRefuel: false }
@@ -293,7 +327,9 @@ export default createStore({
     ADD_METRO(state, metro) {
       state.metros.push({
         ...metro,
-        id: state.metros.length + 1
+        id: state.metros.length + 1,
+        status: 'idle',
+        stopCountdown: 0
       })
     },
 
@@ -308,7 +344,9 @@ export default createStore({
     ADD_HIGH_SPEED_RAIL(state, hsr) {
       state.highSpeedRails.push({
         ...hsr,
-        id: state.highSpeedRails.length + 1
+        id: state.highSpeedRails.length + 1,
+        status: 'idle',
+        stopCountdown: 0
       })
     },
 
@@ -415,8 +453,8 @@ export default createStore({
     updateGame({ state, commit, getters, dispatch }) {
       commit('UPDATE_LAST_ONLINE_TIME')
 
-      // 更新巴士
-      state.buses.forEach(bus => {
+      // 更新城市巴士
+      state.buses.filter(b => b.busType === 'city').forEach(bus => {
         if ((bus.status === 'running' || bus.status === 'stopped') && bus.routeId) {
           const updates = updateVehicleProgress(bus, 'bus', getters)
           commit('UPDATE_BUS', { id: bus.id, updates })
@@ -427,7 +465,7 @@ export default createStore({
               type: 'income',
               category: 'bus',
               amount: updates.earnedMoney,
-              description: `巴士线路收入`
+              description: `巴士线路票款收入`
             })
           }
 
@@ -438,6 +476,34 @@ export default createStore({
               category: 'electricity',
               amount: updates.electricityCost,
               description: `巴士运营电费`
+            })
+          }
+        }
+      })
+
+      // 更新长途巴士
+      state.buses.filter(b => b.busType === 'coach').forEach(bus => {
+        if ((bus.status === 'running' || bus.status === 'stopped') && bus.routeId) {
+          const updates = updateVehicleProgress(bus, 'coach', getters)
+          commit('UPDATE_BUS', { id: bus.id, updates })
+
+          if (updates.earnedMoney) {
+            commit('ADD_MONEY', updates.earnedMoney)
+            commit('ADD_FINANCIAL_RECORD', {
+              type: 'income',
+              category: 'coach',
+              amount: updates.earnedMoney,
+              description: `长途巴士票款收入`
+            })
+          }
+
+          if (updates.electricityCost) {
+            commit('ADD_MONEY', -updates.electricityCost)
+            commit('ADD_FINANCIAL_RECORD', {
+              type: 'expense',
+              category: 'electricity',
+              amount: updates.electricityCost,
+              description: `长途巴士运营电费`
             })
           }
         }
@@ -456,7 +522,7 @@ export default createStore({
                 type: 'income',
                 category: 'plane',
                 amount: updates.earnedMoney,
-                description: `飞行线路收入`
+                description: `飞行线路票款收入`
               })
             }
           }
@@ -486,7 +552,7 @@ export default createStore({
                 type: 'income',
                 category: 'metro',
                 amount: updates.earnedMoney,
-                description: '地铁线路收入'
+                description: '地铁线路票款收入'
               })
             }
           }
@@ -516,7 +582,7 @@ export default createStore({
                 type: 'income',
                 category: 'hsr',
                 amount: updates.earnedMoney,
-                description: '高铁线路收入'
+                description: '高铁线路票款收入'
               })
             }
           }
@@ -851,11 +917,12 @@ export default createStore({
       }
       const cost = upgradeCosts[upgradeType]
       if (!cost || state.money < cost) return false
+      if (type === 'bus') return false
 
       let vehicle, updateFn
       switch (type) {
-        case 'bus':
-          vehicle = state.buses.find(b => b.id === vehicleId)
+        case 'coach':
+          vehicle = state.buses.find(b => b.id === vehicleId && b.busType === 'coach')
           updateFn = 'UPDATE_BUS'
           break
         case 'plane':

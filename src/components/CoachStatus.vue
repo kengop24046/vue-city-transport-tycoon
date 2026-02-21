@@ -1,104 +1,108 @@
 <template>
-  <div class="bus-status">
-    <h2>🚌 城市巴士运行状况</h2>
-    <div v-if="buses.length === 0" class="empty-state">
-      <p>暂无城市巴士,快去商店购买吧!</p>
+  <div class="coach-status">
+    <h2>🚍 长途巴士运行状况</h2>
+    <div v-if="coaches.length === 0" class="empty-state">
+      <p>🅿️ 暂无长途巴士,快去商店购买吧!</p>
     </div>
-    <div v-else class="bus-list">
-      <div v-for="bus in buses" :key="bus.id" class="bus-card">
-        <div class="bus-header">
-          <h3>{{ getBusModel(bus.modelId)?.name || '未知车型' }}</h3>
-          <span class="status-badge" :class="bus.status">
-            {{ getBusStatusText(bus) }}
+    <div v-else class="coach-list">
+      <div v-for="coach in coaches" :key="coach.id" class="coach-card">
+        <div class="coach-header">
+          <h3>{{ getBusModel(coach.modelId)?.name || '未知车型' }}</h3>
+          <span class="status-badge" :class="coach.status">
+            {{ getBusStatusText(coach) }}
           </span>
         </div>
-        <div class="bus-info">
+        <div class="coach-info">
           <div class="info-row">
             <span class="info-label">🗺️ 线路</span>
-            <span class="info-value">{{ getRouteName(bus.routeId) }}</span>
+            <span class="info-value">{{ getRouteName(coach.routeId) }}</span>
           </div>
-          <div class="info-row" v-if="bus.status === 'stopped'">
+          <div class="info-row" v-if="coach.status === 'stopped'">
             <span class="info-label">📍 已到站</span>
             <span class="info-value arrived">
-              {{ getCurrentStop(bus) }}
-              <span v-if="bus.isAtTerminal" class="terminal-tag">🏁 总站</span>
+              {{ getCurrentStop(coach) }}
+              <span v-if="coach.isAtTerminal" class="terminal-tag">🏁 总站</span>
             </span>
           </div>
-          <div class="info-row" v-if="bus.routeId">
+          <div class="info-row" v-if="coach.routeId">
             <span class="info-label">🏁 下一站</span>
-            <span class="info-value">{{ getNextStop(bus) }}</span>
+            <span class="info-value">{{ getNextStop(coach) }}</span>
           </div>
-          <div class="info-row" v-if="bus.status === 'stopped'">
+          <div class="info-row" v-if="coach.status === 'stopped'">
             <span class="info-label">⏱️ 发车倒计时</span>
-            <span class="info-value countdown" :class="{terminal: bus.isAtTerminal}">
-              {{ bus.stopCountdown }} 秒
-              <span v-if="bus.isAtTerminal" class="terminal-hint">(总站停靠)</span>
+            <span class="info-value countdown" :class="{terminal: coach.isAtTerminal}">
+              {{ coach.stopCountdown }} 秒
+              <span v-if="coach.isAtTerminal" class="terminal-hint">(总站停靠)</span>
             </span>
           </div>
           <div class="info-row">
             <span class="info-label">👥 乘客</span>
-            <span class="info-value">{{ bus.passengers }} / {{ getBusModel(bus.modelId)?.capacity || 0 }}</span>
+            <span class="info-value">{{ coach.passengers }} / {{ getBusModel(coach.modelId)?.capacity || 0 }}</span>
           </div>
           <div class="progress-section">
             <div class="progress-label">
               <span>📈 到下一站进度</span>
-              <span>{{ Math.floor(bus.progress) }}%</span>
+              <span>{{ Math.floor(coach.progress) }}%</span>
             </div>
             <div class="progress-bar">
-              <div class="progress-fill" :style="{ width: `${bus.progress}%` }"></div>
+              <div class="progress-fill" :style="{ width: `${coach.progress}%` }"></div>
             </div>
           </div>
         </div>
         <div class="resource-bars">
-          <div class="resource-bar" v-if="bus.powerType === 'electric'">
+          <div class="resource-bar" v-if="coach.powerType === 'electric'">
             <span class="resource-label">🔋 电量</span>
             <div class="bar-container">
-              <div class="bar-fill battery" :style="{ width: `${bus.battery}%` }"></div>
+              <div class="bar-fill battery" :style="{ width: `${coach.battery}%` }"></div>
             </div>
-            <span class="resource-value">{{ Math.floor(bus.battery) }}%</span>
+            <span class="resource-value">{{ Math.floor(coach.battery) }}%</span>
             <button
-              v-if="bus.needsCharge && bus.isAtTerminal && bus.status === 'stopped'"
+              v-if="coach.needsCharge && coach.isAtTerminal && coach.status === 'stopped'"
               class="action-btn charge"
-              @click="chargeBus(bus.id)"
+              @click="chargeBus(coach.id)"
             >
               充电
             </button>
-            <span v-else-if="bus.needsCharge" class="hint-text">🔌 需到总站充电</span>
+            <span v-else-if="coach.needsCharge" class="hint-text">🔌 需到总站充电</span>
           </div>
-          <div class="resource-bar" v-else-if="bus.powerType === 'fuel'">
+          <div class="resource-bar" v-else-if="coach.powerType === 'fuel'">
             <span class="resource-label">⛽ 油量</span>
             <div class="bar-container">
-              <div class="bar-fill fuel" :style="{ width: `${bus.fuel}%` }"></div>
+              <div class="bar-fill fuel" :style="{ width: `${coach.fuel}%` }"></div>
             </div>
-            <span class="resource-value">{{ Math.floor(bus.fuel) }}%</span>
-            <button 
-              v-if="bus.needsRefuel && bus.isAtTerminal && bus.status === 'stopped'"
+            <span class="resource-value">{{ Math.floor(coach.fuel) }}%</span>
+            <button
+              v-if="coach.needsRefuel && coach.isAtTerminal && coach.status === 'stopped'"
               class="action-btn refuel"
-              @click="refuelBus(bus.id)"
+              @click="refuelBus(coach.id)"
             >
               加油
             </button>
-            <span v-else-if="bus.needsRefuel" class="hint-text">需到总站加油</span>
+            <span v-else-if="coach.needsRefuel" class="hint-text">需到总站加油</span>
           </div>
           <div class="resource-bar">
             <span class="resource-label">🧹 清洁度</span>
             <div class="bar-container">
-              <div class="bar-fill cleanliness" :style="{ width: `${bus.cleanliness}%` }"></div>
+              <div class="bar-fill cleanliness" :style="{ width: `${coach.cleanliness}%` }"></div>
             </div>
-            <span class="resource-value">{{ Math.floor(bus.cleanliness) }}%</span>
+            <span class="resource-value">{{ Math.floor(coach.cleanliness) }}%</span>
             <button 
-              v-if="bus.needsCleaning && bus.isAtTerminal && bus.status === 'stopped'"
+              v-if="coach.needsCleaning && coach.isAtTerminal && coach.status === 'stopped'"
               class="action-btn clean"
-              @click="cleanBus(bus.id)"
+              @click="cleanBus(coach.id)"
             >
               清洁
             </button>
-            <span v-else-if="bus.needsCleaning" class="hint-text">需到总站清洁</span>
+            <span v-else-if="coach.needsCleaning" class="hint-text">需到总站清洁</span>
           </div>
         </div>
-        <div class="bus-upgrades">
-          <span class="upgrade-tag disabled">娱乐系统</span>
-          <span class="upgrade-tag disabled">WiFi</span>
+        <div class="coach-upgrades">
+          <span class="upgrade-tag" :class="{ active: coach.hasEntertainment }">
+            娱乐系统
+          </span>
+          <span class="upgrade-tag" :class="{ active: coach.hasWiFi }">
+            WiFi
+          </span>
         </div>
       </div>
     </div>
@@ -110,63 +114,61 @@ import { computed } from 'vue'
 import { useStore } from 'vuex'
 
 export default {
-  name: 'BusStatus',
+  name: 'CoachStatus',
   setup() {
     const store = useStore()
-
-    const buses = computed(() => store.state.buses.filter(b => b.busType === 'city'))
-
-    // 获取巴士车型信息
+    const coaches = computed(() => store.state.buses.filter(b => b.busType === 'coach'))
     const getBusModel = (modelId) => {
       return store.getters.getBusModel(modelId)
     }
 
-    // 获取线路完整信息
     const getRoute = (routeId) => {
       if (!routeId) return null
       return store.getters.getRoute(routeId)
     }
 
-    // 获取线路名称
     const getRouteName = (routeId) => {
       if (!routeId) return '未分配线路'
       const route = getRoute(routeId)
       return route?.name || '未知线路'
     }
 
-    const getCurrentStop = (bus) => {
-      if (!bus.routeId) return '-'
-      const route = getRoute(bus.routeId)
+    const getCurrentStop = (coach) => {
+      if (!coach.routeId) return '-'
+      const route = getRoute(coach.routeId)
       if (!route) return '-'
-      const stops = bus.direction === 'outbound' ? route.stops.outbound : route.stops.inbound
-      return stops[bus.currentStopIndex] || '-'
+      const stops = coach.direction === 'outbound' ? route.stops.outbound : route.stops.inbound
+      return stops[coach.currentStopIndex] || '-'
     }
 
-    const getNextStop = (bus) => {
-      if (!bus.routeId) return '-'
-      const route = getRoute(bus.routeId)
+    const getNextStop = (coach) => {
+      if (!coach.routeId) return '-'
+      const route = getRoute(coach.routeId)
       if (!route) return '-'
-      const currentStops = bus.direction === 'outbound' ? route.stops.outbound : route.stops.inbound
-      const currentIndex = bus.currentStopIndex
+      const currentStops = coach.direction === 'outbound' ? route.stops.outbound : route.stops.inbound
+      const currentIndex = coach.currentStopIndex
 
-      if (bus.status === 'running') {
+      if (coach.status === 'running') {
         return currentStops[currentIndex] || '-'
       }
-      if (bus.status === 'stopped') {
+      if (coach.status === 'stopped') {
         const nextIndex = currentIndex + 1
         if (nextIndex < currentStops.length) {
           return currentStops[nextIndex] || '-'
         }
-        const reverseDirection = bus.direction === 'outbound' ? 'inbound' : 'outbound'
+
+        const reverseDirection = coach.direction === 'outbound' ? 'inbound' : 'outbound'
         const reverseStops = reverseDirection === 'outbound' ? route.stops.outbound : route.stops.inbound
         return reverseStops[0] || '-'
       }
+      // 闲置状态
       return '-'
     }
 
+    // 获取巴士状态文本
     const getBusStatusText = (bus) => {
       const statusMap = {
-        running: '🚌 运行中',
+        running: '运行中',
         stopped: '到站停车',
         idle: '💤 闲置'
       }
@@ -189,7 +191,7 @@ export default {
     }
 
     return {
-      buses,
+      coaches,
       getBusModel,
       getRouteName,
       getCurrentStop,
@@ -204,7 +206,7 @@ export default {
 </script>
 
 <style scoped>
-.bus-status h2 {
+.coach-status h2 {
   margin: 0 0 25px 0;
   color: #333;
   font-size: 24px;
@@ -217,29 +219,29 @@ export default {
   font-size: 18px;
 }
 
-.bus-list {
+.coach-list {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
   gap: 20px;
 }
 
-.bus-card {
-  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+.coach-card {
+  background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
   border-radius: 15px;
   padding: 20px;
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 4px 15px rgba(30, 60, 114, 0.3);
 }
 
-.bus-header {
+.coach-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
   margin-bottom: 15px;
 }
 
-.bus-header h3 {
+.coach-header h3 {
   margin: 0;
-  color: #333;
+  color: white;
   font-size: 18px;
 }
 
@@ -265,7 +267,7 @@ export default {
   color: white;
 }
 
-.bus-info {
+.coach-info {
   background: white;
   border-radius: 10px;
   padding: 15px;
@@ -319,7 +321,7 @@ export default {
 }
 
 .info-value.countdown.terminal {
-  color: #d32f2f;
+  color: #ffeb3b;
 }
 
 .terminal-hint {
@@ -369,7 +371,7 @@ export default {
 
 .resource-label {
   font-size: 12px;
-  color: #666;
+  color: #fff;
   width: 70px;
   flex-shrink: 0;
 }
@@ -377,7 +379,7 @@ export default {
 .bar-container {
   flex: 1;
   height: 8px;
-  background: #e0e0e0;
+  background: rgba(255,255,255,0.2);
   border-radius: 4px;
   overflow: hidden;
   min-width: 100px;
@@ -402,7 +404,7 @@ export default {
 
 .resource-value {
   font-size: 12px;
-  color: #333;
+  color: #fff;
   width: 40px;
   text-align: right;
   flex-shrink: 0;
@@ -410,7 +412,7 @@ export default {
 
 .hint-text {
   font-size: 11px;
-  color: #f5576c;
+  color: #ffeb3b;
   width: 80px;
   text-align: center;
   flex-shrink: 0;
@@ -447,7 +449,7 @@ export default {
   box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
 }
 
-.bus-upgrades {
+.coach-upgrades {
   display: flex;
   gap: 10px;
   margin-top: 15px;
@@ -457,22 +459,17 @@ export default {
   padding: 5px 10px;
   border-radius: 12px;
   font-size: 12px;
-  background: #e0e0e0;
-  color: #888;
-}
-
-.upgrade-tag.disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
+  background: rgba(255,255,255,0.2);
+  color: #fff;
 }
 
 .upgrade-tag.active {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
   color: white;
 }
 
 @media screen and (max-width: 400px) {
-  .bus-list {
+  .coach-list {
     grid-template-columns: 1fr;
   }
   .resource-bar {

@@ -1,107 +1,106 @@
 <template>
-  <div class="plane-status">
-    <h2>✈️ 飞机运行状况</h2>
+<div class="plane-status">
+  <h2>✈️ 飞机运行状况</h2>
+  <div v-if="companyLevel < 6" class="locked-state">
+    <div class="locked-icon">🔒</div>
+    <h3>飞机系统未解锁</h3>
+    <p>公司等级达到 6 级解锁飞机系统</p>
+    <p class="current-level">当前等级: {{ companyLevel }}</p>
+  </div>
 
-    <div v-if="companyLevel < 6" class="locked-state">
-      <div class="locked-icon">🔒</div>
-      <h3>飞机系统未解锁</h3>
-      <p>公司等级达到 6 级解锁飞机系统</p>
-      <p class="current-level">当前等级: {{ companyLevel }}</p>
-    </div>
+  <div v-else-if="planes.length === 0" class="empty-state">
+    <p>暂无飞机,快去商店购买吧!</p>
+  </div>
 
-    <div v-else-if="planes.length === 0" class="empty-state">
-      <p>暂无飞机,快去商店购买吧!</p>
-    </div>
+  <div v-else class="plane-list">
+    <div v-for="plane in planes" :key="plane.id" class="plane-card">
+      <div class="plane-header">
+        <h3>{{ getPlaneModel(plane.modelId)?.name || '未知机型' }}</h3>
+        <span class="status-badge" :class="getPlaneStatusClass(plane)">
+          {{ getPlaneStatusText(plane) }}
+        </span>
+      </div>
 
-    <div v-else class="plane-list">
-      <div v-for="plane in planes" :key="plane.id" class="plane-card">
-        <div class="plane-header">
-          <h3>{{ getPlaneModel(plane.modelId)?.name || '未知机型' }}</h3>
-          <span class="status-badge" :class="getPlaneStatusClass(plane)">
-            {{ getPlaneStatusText(plane) }}
+      <div class="plane-info">
+        <div class="info-row">
+          <span class="info-label">📍 航线</span>
+          <span class="info-value">{{ getRouteName(plane.routeId) }}</span>
+        </div>
+
+        <div class="info-row" v-if="plane.routeId">
+          <span class="info-label">🏁 下一机场</span>
+          <span class="info-value">{{ getNextPoint(plane) }}</span>
+        </div>
+
+        <div class="info-row">
+          <span class="info-label">👥 乘客</span>
+          <span class="info-value">{{ plane.passengers }} / {{ getPlaneModel(plane.modelId)?.capacity || 0 }}</span>
+        </div>
+
+        <div class="info-row">
+          <span class="info-label">🚀 速度</span>
+          <span class="info-value">{{ getPlaneModel(plane.modelId)?.speed || 0 }} km/h</span>
+        </div>
+
+        <div class="progress-section" v-if="plane.flightStage === 'boarding'">
+          <div class="progress-label">
+            <span>🎫 登机进度</span>
+            <span>{{ Math.floor(plane.boardingProgress) }}%</span>
+          </div>
+          <div class="progress-bar">
+            <div class="progress-fill boarding" :style="{ width: `${plane.boardingProgress}%` }"></div>
+          </div>
+        </div>
+
+        <div class="progress-section" v-if="plane.flightStage === 'flying'">
+          <div class="progress-label">
+            <span>🛫 到下一机场进度</span>
+            <span>{{ Math.floor(plane.progress) }}%</span>
+          </div>
+          <div class="progress-bar">
+            <div class="progress-fill flying" :style="{ width: `${plane.progress}%` }"></div>
+          </div>
+        </div>
+
+        <div class="resource-bars">
+          <div class="resource-bar">
+            <span class="resource-label">⛽ 油量</span>
+            <div class="bar-container">
+              <div class="bar-fill fuel" :style="{ width: `${plane.fuel}%` }"></div>
+            </div>
+            <span class="resource-value">{{ Math.floor(plane.fuel) }}%</span>
+          </div>
+        </div>
+
+        <div class="plane-upgrades">
+          <span class="upgrade-tag" :class="{ active: plane.hasEntertainment }">
+            娱乐系统
+          </span>
+          <span class="upgrade-tag" :class="{ active: plane.hasWiFi }">
+            WiFi
           </span>
         </div>
+      </div>
 
-        <div class="plane-info">
-          <div class="info-row">
-            <span class="info-label">📍 航线</span>
-            <span class="info-value">{{ getRouteName(plane.routeId) }}</span>
-          </div>
-
-          <div class="info-row" v-if="plane.routeId">
-            <span class="info-label">🏪 当前位置</span>
-            <span class="info-value">{{ getCurrentPoint(plane) }}</span>
-          </div>
-
-          <div class="info-row">
-            <span class="info-label">👥 乘客</span>
-            <span class="info-value">{{ plane.passengers }} / {{ getPlaneModel(plane.modelId)?.capacity || 0 }}</span>
-          </div>
-
-          <div class="info-row">
-            <span class="info-label">🚀 速度</span>
-            <span class="info-value">{{ getPlaneModel(plane.modelId)?.speed || 0 }} km/h</span>
-          </div>
-
-          <div class="progress-section" v-if="plane.flightStage === 'boarding'">
-            <div class="progress-label">
-              <span>🎫 登机进度</span>
-              <span>{{ Math.floor(plane.boardingProgress) }}%</span>
-            </div>
-            <div class="progress-bar">
-              <div class="progress-fill boarding" :style="{ width: `${plane.boardingProgress}%` }"></div>
-            </div>
-          </div>
-
-          <div class="progress-section" v-if="plane.flightStage === 'flying'">
-            <div class="progress-label">
-              <span>🛫 航程进度</span>
-              <span>{{ Math.floor(plane.progress) }}%</span>
-            </div>
-            <div class="progress-bar">
-              <div class="progress-fill flying" :style="{ width: `${plane.progress}%` }"></div>
-            </div>
-          </div>
-
-          <div class="resource-bars">
-            <div class="resource-bar">
-              <span class="resource-label">⛽ 油量</span>
-              <div class="bar-container">
-                <div class="bar-fill fuel" :style="{ width: `${plane.fuel}%` }"></div>
-              </div>
-              <span class="resource-value">{{ Math.floor(plane.fuel) }}%</span>
-            </div>
-          </div>
-
-          <div class="plane-upgrades">
-            <span class="upgrade-tag" :class="{ active: plane.hasEntertainment }">
-              娱乐系统
-            </span>
-            <span class="upgrade-tag" :class="{ active: plane.hasWiFi }">
-              WiFi
-            </span>
-          </div>
-        </div>
-
-        <div class="plane-actions">
-          <button
-            v-if="plane.needsRefuel"
-            class="action-btn refuel"
-            @click="refuelPlane(plane.id)"
-          >
-            ⛽ 加油
-          </button>
-          <button
-            v-if="plane.needsSupplies"
-            class="action-btn supply"
-            @click="supplyPlane(plane.id)"
-          >
-            🍽️ 补给
-          </button>
-        </div>
+      <div class="plane-actions">
+        <button
+          v-if="plane.needsRefuel"
+          class="action-btn refuel"
+          @click="refuelPlane(plane.id)"
+        >
+          加油
+        </button>
+        <button
+          v-if="plane.needsSupplies"
+          class="action-btn supply"
+          @click="supplyPlane(plane.id)"
+        >
+          🍽️ 补给
+        </button>
       </div>
     </div>
   </div>
+</div>
 </template>
 
 <script>
@@ -130,7 +129,7 @@ export default {
       return route?.name || '未知航线'
     }
 
-    const getCurrentPoint = (plane) => {
+    const getNextPoint = (plane) => {
       if (!plane.routeId) return '-'
       const route = getRoute(plane.routeId)
       if (!route) return '-'
@@ -140,10 +139,10 @@ export default {
     const getPlaneStatusText = (plane) => {
       if (plane.status !== 'running') return '停泊'
       const statusMap = {
-        docked: '🛬 停靠中',
+        docked: '🛬 停靠机场',
         boarding: '🎫 登机中',
         flying: '✈️ 飞行中',
-        arrived: '🏁 已抵达'
+        arrived: '🛬 已抵达'
       }
       return statusMap[plane.flightStage] || '✈️ 运行中'
     }
@@ -168,7 +167,7 @@ export default {
       planes,
       getPlaneModel,
       getRouteName,
-      getCurrentPoint,
+      getNextPoint,
       getPlaneStatusText,
       getPlaneStatusClass,
       refuelPlane,

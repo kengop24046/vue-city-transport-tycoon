@@ -304,8 +304,30 @@ export default [
     requiredLevel: 3
   },
   {
+    id: 'macau_zhuhai_coach',
+    name: '澳门→珠海 长途线 🚍',
+    city: 'macau',
+    type: 'coach',
+    fare: 50,
+    stops: {
+      outbound: [
+        '关闸总站',
+        '横琴口岸',
+        '珠海拱北口岸',
+        '珠海香洲总站'
+      ],
+      inbound: [
+        '珠海香洲总站',
+        '珠海拱北口岸',
+        '横琴口岸',
+        '关闸总站'
+      ]
+    },
+    requiredLevel: 1
+  },
+  {
     id: 'macau_zhuhai_short',
-    name: '澳门￫珠海 短途航线 ✈️',
+    name: '澳门→珠海 短途航线 ✈️',
     city: 'macau',
     type: 'plane',
     fare: 500,
@@ -317,7 +339,7 @@ export default [
   },
   {
     id: 'macau_hongkong',
-    name: '澳门￫香港 航线 ✈️',
+    name: '澳门→香港 航线 ✈️',
     city: 'macau',
     type: 'plane',
     fare: 1200,
@@ -329,7 +351,7 @@ export default [
   },
   {
     id: 'macau_shenzhen',
-    name: '澳门￫深圳 航线 ✈️',
+    name: '澳门→深圳 航线 ✈️',
     city: 'macau',
     type: 'plane',
     fare: 1500,
@@ -341,7 +363,7 @@ export default [
   },
   {
     id: 'macau_shanghai',
-    name: '澳门￫上海 航线 ✈️',
+    name: '澳门→上海 航线 ✈️',
     city: 'macau',
     type: 'plane',
     fare: 2500,
@@ -353,7 +375,7 @@ export default [
   },
   {
     id: 'macau_beijing',
-    name: '澳门￫北京 航线 ✈️',
+    name: '澳门→北京 航线 ✈️',
     city: 'macau',
     type: 'plane',
     fare: 3000,
