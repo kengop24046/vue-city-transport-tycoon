@@ -2,22 +2,22 @@
   <header class="header">
     <div class="header-content">
       <div class="logo">
-        <h1>🏙️ 城市交通大亨 🚗</h1>
+        <h1>🚦 城市交通大亨</h1>
         <p class="subtitle">{{ companyName }}</p>
       </div>
       <div class="stats">
         <div class="stat-item">
           <span class="stat-icon">💰</span>
           <span class="stat-label">资金</span>
-          <span class="stat-value">¥{{ formatMoney(money) }}</span>
+          <span class="stat-value">{{ formatMoney(money) }}</span>
         </div>
         <div class="stat-item">
-          <span class="stat-icon">🏢</span>
+          <span class="stat-icon">🏆</span>
           <span class="stat-label">等级</span>
           <span class="stat-value">Lv.{{ companyLevel }}</span>
         </div>
         <div class="stat-item">
-          <span class="stat-icon">⭐</span>
+          <span class="stat-icon">📈</span>
           <span class="stat-label">经验</span>
           <div class="exp-bar">
             <div class="exp-fill" :style="{ width: `${(experience / experienceToNextLevel) * 100}%` }"></div>
@@ -25,7 +25,7 @@
           <span class="stat-value-small">{{ formatMoney(experience) }} / {{ formatMoney(experienceToNextLevel) }}</span>
         </div>
         <div class="stat-item">
-          <span class="stat-icon">🕐</span>
+          <span class="stat-icon">⏰</span>
           <span class="stat-label">时间</span>
           <span class="stat-value">{{ currentTime }}</span>
         </div>

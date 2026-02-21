@@ -9,7 +9,8 @@ export default [
     price: 400000,
     speed: 100,
     energyEfficiency: 12,
-    description: '高端商务燃油巴士，续航能力强'
+    fuelCapacity: 200,
+    description: '高端商务燃油巴士,续航能力强'
   },
   {
     id: 'king_long_xmq6115',
@@ -20,6 +21,7 @@ export default [
     price: 500000,
     speed: 60,
     energyEfficiency: 14,
+    fuelCapacity: 300,
     description: '经济型城市燃油公交'
   },
   {
@@ -31,6 +33,7 @@ export default [
     price: 900000,
     speed: 75,
     energyEfficiency: 20,
+    fuelCapacity: 400,
     description: '12米豪华城市燃油公交'
   },
   // 电动车型
@@ -43,7 +46,8 @@ export default [
     price: 500000,
     speed: 60,
     energyEfficiency: 15,
-    description: '纯电动城市公交，初始车辆'
+    batteryCapacity: 200,
+    description: '纯电动城市公交,初始车辆'
   },
   {
     id: 'yu_tong_e12',
@@ -54,6 +58,7 @@ export default [
     price: 800000,
     speed: 70,
     energyEfficiency: 18,
+    batteryCapacity: 250,
     description: '12米纯电动公交'
   },
   {
@@ -65,6 +70,7 @@ export default [
     price: 600000,
     speed: 65,
     energyEfficiency: 16,
+    batteryCapacity: 220,
     description: '比亚迪纯电动公交'
   },
   {
@@ -76,6 +82,7 @@ export default [
     price: 1200000,
     speed: 80,
     energyEfficiency: 22,
+    batteryCapacity: 300,
     description: '大容量BRT纯电动公交'
   },
   {
@@ -87,6 +94,7 @@ export default [
     price: 700000,
     speed: 68,
     energyEfficiency: 17,
+    batteryCapacity: 240,
     description: '智慧纯电动公交'
   }
 ]

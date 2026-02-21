@@ -7,7 +7,7 @@
           v-for="tab in tabs" 
           :key="tab.id"
           :class="{ active: currentTab === tab.id, locked: tab.locked }"
-          @click="!tab.locked && (currentTab = tab.id)"
+          @click="handleTabClick(tab)"
         >
           {{ tab.icon }} {{ tab.name }}
           <span v-if="tab.locked" class="lock-icon">🔒</span>
@@ -15,16 +15,16 @@
       </div>
       <div class="tab-content">
         <Dashboard v-if="currentTab === 'dashboard'" />
-        <BusStatus v-if="currentTab === 'busStatus'" />
-        <PlaneStatus v-if="currentTab === 'planeStatus'" />
-        <MetroStatus v-if="currentTab === 'metroStatus'" />
-        <HighSpeedRailStatus v-if="currentTab === 'hsrStatus'" />
-        <Finance v-if="currentTab === 'finance'" />
-        <Shop v-if="currentTab === 'shop'" />
-        <EmployeeManagement v-if="currentTab === 'employees'" />
-        <RouteManagement v-if="currentTab === 'routes'" />
-        <SharedBike v-if="currentTab === 'bikes'" />
-        <Settings v-if="currentTab === 'settings'" />
+        <BusStatus v-else-if="currentTab === 'busStatus'" />
+        <PlaneStatus v-else-if="currentTab === 'planeStatus'" />
+        <MetroStatus v-else-if="currentTab === 'metroStatus'" />
+        <HighSpeedRailStatus v-else-if="currentTab === 'hsrStatus'" />
+        <Finance v-else-if="currentTab === 'finance'" />
+        <Shop v-else-if="currentTab === 'shop'" />
+        <EmployeeManagement v-else-if="currentTab === 'employees'" />
+        <RouteManagement v-else-if="currentTab === 'routes'" />
+        <SharedBike v-else-if="currentTab === 'bikes'" />
+        <Settings v-else-if="currentTab === 'settings'" />
       </div>
     </div>
   </div>
@@ -68,43 +68,81 @@ export default {
     let gameLoop = null
     let saveLoop = null
 
-    const companyLevel = computed(() => store.state.companyLevel)
+    const companyLevel = computed(() => store.state?.companyLevel ?? 1)
 
     const tabs = computed(() => [
-      { id: 'dashboard', name: '总览', icon: '🏠', locked: false },
+      { id: 'dashboard', name: '总览', icon: '📊', locked: false },
       { id: 'busStatus', name: '巴士状态', icon: '🚌', locked: false },
       { id: 'planeStatus', name: '飞机状态', icon: '✈️', locked: companyLevel.value < 6 },
       { id: 'metroStatus', name: '地铁状态', icon: '🚇', locked: companyLevel.value < 10 },
       { id: 'hsrStatus', name: '高铁状态', icon: '🚄', locked: companyLevel.value < 20 },
-      { id: 'finance', name: '财务报表', icon: '💰', locked: false },
+      { id: 'finance', name: '财务报表', icon: '📈', locked: false },
       { id: 'shop', name: '商店', icon: '🛒', locked: false },
       { id: 'employees', name: '员工管理', icon: '👥', locked: false },
-      { id: 'routes', name: '线路管理', icon: '🛤️', locked: false },
+      { id: 'routes', name: '线路管理', icon: '🛣️', locked: false },
       { id: 'bikes', name: '共享单车', icon: '🚲', locked: false },
       { id: 'settings', name: '设置', icon: '⚙️', locked: false }
     ])
 
-    onMounted(() => {
-      store.dispatch('loadGame')
+    const handleTabClick = (tab) => {
+      if (!tab.locked) {
+        currentTab.value = tab.id
+      }
+    }
+
+    const startGameLoops = () => {
       // 游戏主循环 - 每秒更新
       gameLoop = setInterval(() => {
-        store.dispatch('updateGame')
+        try {
+          store.dispatch('updateGame')
+        } catch (e) {
+          console.error('游戏更新失败:', e)
+        }
       }, 1000)
+
       // 自动保存 - 每30秒
       saveLoop = setInterval(() => {
-        store.dispatch('saveGame')
+        try {
+          store.dispatch('saveGame')
+        } catch (e) {
+          console.error('游戏保存失败:', e)
+        }
       }, 30000)
+    }
+
+    const stopGameLoops = () => {
+      if (gameLoop) {
+        clearInterval(gameLoop)
+        gameLoop = null
+      }
+      if (saveLoop) {
+        clearInterval(saveLoop)
+        saveLoop = null
+      }
+    }
+
+    onMounted(() => {
+      try {
+        store.dispatch('loadGame')
+      } catch (e) {
+        console.error('游戏加载失败:', e)
+      }
+      startGameLoops()
     })
 
     onUnmounted(() => {
-      if (gameLoop) clearInterval(gameLoop)
-      if (saveLoop) clearInterval(saveLoop)
-      store.dispatch('saveGame')
+      stopGameLoops()
+      try {
+        store.dispatch('saveGame')
+      } catch (e) {
+        console.error('卸载时保存失败:', e)
+      }
     })
 
     return {
       currentTab,
-      tabs
+      tabs,
+      handleTabClick
     }
   }
 }

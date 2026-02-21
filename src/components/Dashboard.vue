@@ -1,6 +1,6 @@
 <template>
   <div class="dashboard">
-    <h2>🏠 运营总览</h2>
+    <h2>📊 运营总览</h2>
     <div class="quick-stats">
       <div class="stat-card">
         <div class="stat-card-icon">🚌</div>
@@ -57,17 +57,17 @@
       </div>
 
       <div class="dashboard-section">
-        <h3>👥 当前乘客</h3>
+        <h3>👨‍👩‍👧‍👦 当前乘客</h3>
         <p class="passenger-count">{{ totalPassengers }} 人</p>
       </div>
 
       <div class="dashboard-section">
-        <h3>📊 最近收入</h3>
+        <h3>💵 最近收入</h3>
         <div class="recent-income">
           <p v-if="recentIncomes.length === 0">暂无收入记录</p>
           <div v-for="(income, index) in recentIncomes" :key="index" class="income-item">
             <span>{{ income.description }}</span>
-            <span class="income-amount">+¥{{ formatMoney(income.amount) }}</span>
+            <span class="income-amount">+ {{ formatMoney(income.amount) }}</span>
           </div>
         </div>
       </div>
@@ -75,11 +75,11 @@
       <div class="dashboard-section">
         <h3>⬆️ 下一等级</h3>
         <div class="next-level-info">
-          <p>还需 <strong>¥{{ formatMoney(experienceToNextLevel - experience) }}</strong> 经验</p>
+          <p>还需 <strong> {{ formatMoney(experienceToNextLevel - experience) }}</strong> 经验</p>
           <div class="exp-bar-large">
             <div class="exp-fill-large" :style="{ width: `${(experience / experienceToNextLevel) * 100}%` }"></div>
           </div>
-          <p v-if="nextLevelUnlock" class="unlock-hint">🔓 {{ nextLevelUnlock }}</p>
+          <p v-if="nextLevelUnlock" class="unlock-hint"> {{ nextLevelUnlock }}</p>
         </div>
       </div>
     </div>
@@ -136,11 +136,11 @@ export default {
 
     const nextLevelUnlock = computed(() => {
       const level = companyLevel.value
-      if (level === 5) return '6级解锁飞机系统!'
-      if (level === 9) return '10级解锁地铁系统!'
-      if (level === 19) return '20级解锁高铁系统!'
-      if (level < 30) return '更多城市和线路等待解锁!'
-      return '已达到最高等级!'
+      if (level === 5) return '6级解锁✈️飞机系统!'
+      if (level === 9) return '10级解锁🚇地铁系统!'
+      if (level === 19) return '20级解锁🚄高铁系统!'
+      if (level < 30) return '更多🏙️城市和🛣️线路等待解锁!'
+      return '已达到最高等级🎉!'
     })
 
     const formatMoney = (amount) => {

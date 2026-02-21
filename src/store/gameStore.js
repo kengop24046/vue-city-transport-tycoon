@@ -41,7 +41,6 @@ const getInitialState = () => ({
   employees: {
     busDrivers: [
       { id: 1, name: '陈司机', salary: 3000, hired: true },
-      { id: 2, name: '林司机', salary: 3000, hired: true }
     ],
     pilots: [],
     flightAttendants: [],
@@ -75,7 +74,9 @@ const getInitialState = () => ({
       needsCleaning: false,
       hasEntertainment: false,
       hasWiFi: false,
-      direction: 'outbound'
+      direction: 'outbound',
+      stopCountdown: 0,
+      isAtTerminal: false
     }
   ],
   planes: [],
@@ -242,10 +243,26 @@ export default createStore({
 
     // 巴士相关
     ADD_BUS(state, bus) {
-      state.buses.push({
-        ...bus,
-        id: state.buses.length + 1
-      })
+      const model = busModels.find(m => m.id === bus.modelId)
+      const initBase = {
+        id: state.buses.length + 1,
+        status: 'idle',
+        currentStopIndex: 0,
+        progress: 0,
+        passengers: 0,
+        cleanliness: 100,
+        needsCleaning: false,
+        hasEntertainment: false,
+        hasWiFi: false,
+        direction: 'outbound',
+        stopCountdown: 0,
+        isAtTerminal: false,
+        ...bus
+      }
+      const initData = model.powerType === 'electric'
+        ? { ...initBase, battery: 100, fuel: 0, needsCharge: false, needsRefuel: false }
+        : { ...initBase, fuel: 100, battery: 0, needsRefuel: false, needsCharge: false }
+      state.buses.push(initData)
     },
 
     UPDATE_BUS(state, { id, updates }) {
@@ -336,7 +353,7 @@ export default createStore({
         const encrypted = encryptData(stateToSave)
         localStorage.setItem('transportTycoonSave', encrypted)
         commit('UPDATE_LAST_SAVE_TIME')
-        console.log('💾 游戏已自动保存')
+        console.log('游戏已自动保存')
       } catch (error) {
         console.error('保存失败:', error)
       }
@@ -400,7 +417,7 @@ export default createStore({
 
       // 更新巴士
       state.buses.forEach(bus => {
-        if (bus.status === 'running' && bus.routeId) {
+        if ((bus.status === 'running' || bus.status === 'stopped') && bus.routeId) {
           const updates = updateVehicleProgress(bus, 'bus', getters)
           commit('UPDATE_BUS', { id: bus.id, updates })
 
@@ -476,7 +493,7 @@ export default createStore({
         })
       }
 
-      // 更新高铁
+      //更新高铁
       if (state.companyLevel >= 20) {
         state.highSpeedRails.forEach(hsr => {
           if (hsr.status === 'running' && hsr.routeId) {
@@ -506,7 +523,7 @@ export default createStore({
         })
       }
 
-      // 共享单车租赁逻辑
+      //共享单车租赁逻辑
       if (Math.random() < 0.05 && state.sharedBikes.totalBikes > state.sharedBikes.activeRentals.length) {
         const rentalHours = Math.ceil(Math.random() * 3)
         const availableBikes = state.sharedBikes.totalBikes - state.sharedBikes.activeRentals.length
@@ -520,7 +537,7 @@ export default createStore({
         }
       }
 
-      // 结算完成的共享单车租赁
+      //结算完成的共享单车租赁
       const now = Date.now()
       state.sharedBikes.activeRentals.forEach(rental => {
         if (now >= rental.startTime + rental.hours * 3600000) {
@@ -561,9 +578,10 @@ export default createStore({
       dispatch('checkLevelUp')
     },
 
+    // 燃油巴士加油
     refuelBus({ state, commit, getters }, busId) {
       const bus = state.buses.find(b => b.id === busId)
-      if (bus && bus.powerType === 'fuel') {
+      if (bus && bus.powerType === 'fuel' && bus.isAtTerminal && bus.status === 'stopped') {
         const model = getters.getBusModel(bus.modelId)
         const cost = (100 - bus.fuel) * 3
         if (state.money >= cost) {
@@ -579,9 +597,10 @@ export default createStore({
       }
     },
 
+    // 电动巴士充电
     chargeBus({ state, commit, getters }, busId) {
       const bus = state.buses.find(b => b.id === busId)
-      if (bus && bus.powerType === 'electric') {
+      if (bus && bus.powerType === 'electric' && bus.isAtTerminal && bus.status === 'stopped') {
         const model = getters.getBusModel(bus.modelId)
         const cost = (100 - bus.battery) * 1
         if (state.money >= cost) {
@@ -597,9 +616,10 @@ export default createStore({
       }
     },
 
+    // 巴士清洁
     cleanBus({ state, commit, getters }, busId) {
       const bus = state.buses.find(b => b.id === busId)
-      if (bus) {
+      if (bus && bus.isAtTerminal && bus.status === 'stopped') {
         const model = getters.getBusModel(bus.modelId)
         const cost = 80
         if (state.money >= cost) {
@@ -656,27 +676,8 @@ export default createStore({
     buyBus({ state, commit, getters }, modelId) {
       const model = getters.getBusModel(modelId)
       if (model && state.money >= model.price) {
-        const busBase = {
-          modelId,
-          powerType: model.powerType,
-          routeId: null,
-          status: 'idle',
-          currentStopIndex: 0,
-          progress: 0,
-          passengers: 0,
-          cleanliness: 100,
-          needsCleaning: false,
-          hasEntertainment: false,
-          hasWiFi: false,
-          direction: 'outbound'
-        }
-
-        const busInit = model.powerType === 'electric'
-          ? { ...busBase, battery: 100, fuel: 0, needsCharge: false, needsRefuel: false }
-          : { ...busBase, fuel: 100, battery: 0, needsRefuel: false, needsCharge: false }
-
         commit('ADD_MONEY', -model.price)
-        commit('ADD_BUS', busInit)
+        commit('ADD_BUS', { modelId, powerType: model.powerType })
         commit('ADD_FINANCIAL_RECORD', {
           type: 'expense',
           category: 'purchase',
