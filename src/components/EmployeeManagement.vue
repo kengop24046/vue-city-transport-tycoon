@@ -1,7 +1,6 @@
 <template>
   <div class="employees">
     <h2>👥 员工管理</h2>
-    
     <div class="employee-tabs">
       <button 
         v-for="tab in tabs" 
@@ -79,11 +78,12 @@ export default {
 
     const money = computed(() => store.state.money)
     const employees = computed(() => store.state.employees)
-    
+
     const tabs = [
       { id: 'busDrivers', name: '巴士司机', icon: '🚌' },
+      { id: 'taxiDrivers', name: '的士司机', icon: '🚕' },
       { id: 'pilots', name: '飞行员', icon: '✈️' },
-      { id: 'flightAttendants', name: '空姐', icon: '💁' },
+      { id: 'flightAttendants', name: '空乘', icon: '👩‍✈️' },
       { id: 'conductors', name: '售票员', icon: '🎫' },
       { id: 'maintenanceWorkers', name: '维修人员', icon: '🔧' },
       { id: 'cleaners', name: '清洁人员', icon: '🧹' },
@@ -91,11 +91,12 @@ export default {
       { id: 'bikeRepairers', name: '单车维修员', icon: '🚲' },
       { id: 'metroDrivers', name: '地铁司机', icon: '🚇' },
       { id: 'hsrDrivers', name: '高铁司机', icon: '🚄' },
-      { id: 'hsrAttendants', name: '高铁乘务员', icon: '💼' }
+      { id: 'hsrAttendants', name: '高铁乘务员', icon: '💁' }
     ]
-    
+
     const salaryInfo = {
       busDrivers: 3000,
+      taxiDrivers: 3500,
       pilots: 15000,
       flightAttendants: 8000,
       conductors: 4000,
@@ -107,9 +108,10 @@ export default {
       hsrDrivers: 12000,
       hsrAttendants: 7000
     }
-    
+
     const hireCosts = {
       busDrivers: 5000,
+      taxiDrivers: 6000,
       pilots: 20000,
       flightAttendants: 10000,
       conductors: 8000,
@@ -121,38 +123,38 @@ export default {
       hsrDrivers: 12000,
       hsrAttendants: 9000
     }
-    
+
     const namePrefixes = ['陈', '林', '黄', '张', '李', '王', '刘', '周', '吴', '郑', '孙', '马', '朱', '胡', '郭']
-    const nameMiddles = ['小', '大', '文', '武', '明', '华', '建', '国', '志', '伟', '丽', '芳', '娜', '敏', '静']
+    const nameMiddles = ['小', '大', '文', '武', '明', '华', '建', '国', '芳', '娜', '敏', '静']
     const nameLasts = ['明', '华', '强', '芳', '娜', '敏', '静', '丽', '娟', '玲', '辉', '鹏', '超', '勇', '军']
-    
+
     const currentEmployees = computed(() => {
       return employees.value[currentTab.value] || []
     })
-    
+
     const tabIcon = computed(() => {
       const tab = tabs.find(t => t.id === currentTab.value)
       return tab?.icon || '👤'
     })
-    
+
     const employeeTypeSalary = computed(() => salaryInfo[currentTab.value] || 3000)
     const employeeTypeHireCost = computed(() => hireCosts[currentTab.value] || 5000)
-    
+
     const getEmployeeCount = (type) => {
       return (employees.value[type] || []).filter(e => e.hired).length
     }
-    
+
     const generateRandomName = () => {
       const prefix = namePrefixes[Math.floor(Math.random() * namePrefixes.length)]
       const middle = nameMiddles[Math.floor(Math.random() * nameMiddles.length)]
       const last = nameLasts[Math.floor(Math.random() * nameLasts.length)]
       return prefix + (Math.random() > 0.5 ? middle : '') + last
     }
-    
+
     const hireEmployee = () => {
       const name = newEmployeeName.value || generateRandomName()
       const salary = employeeTypeSalary.value
-      
+
       if (store.dispatch('hireEmployee', {
         type: currentTab.value,
         name,

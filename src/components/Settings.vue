@@ -113,6 +113,11 @@
           <li><strong>20级</strong> - 解锁高铁系统</li>
           <li><strong>30级</strong> - 最高等级，成为交通大亨！</li>
         </ul>
+
+         <h4>👻开源地址</h4>
+        <ul>
+          <li>https://github.com/kengop24046/vue-city-transport-tycoon</li>
+        </ul>
       </div>
     </div>
 

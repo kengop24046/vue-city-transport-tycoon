@@ -1,308 +1,363 @@
 <template>
-<div class="shop">
-  <h2>🛒 商店</h2>
-  <div class="shop-tabs">
-    <button
-      v-for="tab in tabs"
-      :key="tab.id"
-      :class="{ active: currentTab === tab.id, locked: tab.locked }"
-      @click="!tab.locked && (currentTab = tab.id)"
-    >
-      {{ tab.icon }} {{ tab.name }}
-      <span v-if="tab.locked" class="lock-icon">🔒</span>
-    </button>
-  </div>
-
-  <!-- 城市巴士商店 -->
-  <div v-if="currentTab === 'buses'" class="shop-content">
-    <h3>🚌 城市巴士商店</h3>
-    <div class="product-grid">
-      <div v-for="model in cityBusModels" :key="model.id" class="product-card">
-        <div class="product-header">
-          <h4>{{ model.name }}</h4>
-          <span class="product-price">¥{{ formatMoney(model.price) }}</span>
-        </div>
-        <span class="power-tag" :class="model.powerType">
-          {{ model.powerType === 'electric' ? '⚡ 电动' : '⛽ 燃油' }}
-        </span>
-        <p class="product-desc">{{ model.description }}</p>
-        <div class="product-stats">
-          <span>👥 容量: {{ model.capacity }}人</span>
-          <span>🚀 速度: {{ model.speed }}km/h</span>
-          <span>📊 效率: {{ model.energyEfficiency }}</span>
-        </div>
-        <button
-          class="buy-btn"
-          :disabled="money < model.price"
-          @click="buyBus(model.id)"
-        >
-          {{ money >= model.price ? '购买' : '资金不足' }}
-        </button>
-      </div>
+  <div class="shop">
+    <h2>🛒 商店</h2>
+    <div class="shop-tabs">
+      <button
+        v-for="tab in tabs"
+        :key="tab.id"
+        :class="{ active: currentTab === tab.id, locked: tab.locked }"
+        @click="!tab.locked && (currentTab = tab.id)"
+      >
+        {{ tab.icon }} {{ tab.name }}
+        <span v-if="tab.locked" class="lock-icon">🔒</span>
+      </button>
     </div>
-  </div>
 
-  <!-- 长途巴士商店 -->
-  <div v-if="currentTab === 'coaches'" class="shop-content">
-    <h3>🚍 长途巴士商店</h3>
-    <div class="product-grid">
-      <div v-for="model in coachModels" :key="model.id" class="product-card">
-        <div class="product-header">
-          <h4>{{ model.name }}</h4>
-          <span class="product-price">¥{{ formatMoney(model.price) }}</span>
-        </div>
-        <span class="power-tag" :class="model.powerType">
-          {{ model.powerType === 'electric' ? '⚡ 电动' : '⛽ 燃油' }}
-        </span>
-        <p class="product-desc">{{ model.description }}</p>
-        <div class="product-stats">
-          <span>👥 容量: {{ model.capacity }}人</span>
-          <span>🚀 速度: {{ model.speed }}km/h</span>
-          <span>📊 效率: {{ model.energyEfficiency }}</span>
-        </div>
-        <button
-          class="buy-btn"
-          :disabled="money < model.price"
-          @click="buyBus(model.id)"
-        >
-          {{ money >= model.price ? '购买' : '资金不足' }}
-        </button>
-      </div>
-    </div>
-  </div>
-
-  <!-- 飞机商店 -->
-  <div v-if="currentTab === 'planes'" class="shop-content">
-    <h3>✈️ 飞机商店</h3>
-    <div class="product-grid">
-      <div v-for="model in planeModels" :key="model.id" class="product-card">
-        <div class="product-header">
-          <h4>{{ model.name }}</h4>
-          <span class="product-price">¥{{ formatMoney(model.price) }}</span>
-        </div>
-        <p class="product-desc">{{ model.description }}</p>
-        <div class="product-stats">
-          <span>👥 容量: {{ model.capacity }}人</span>
-          <span>🚀 速度: {{ model.speed }}km/h</span>
-          <span>📍 航程: {{ model.range }}km</span>
-        </div>
-        <button
-          class="buy-btn"
-          :disabled="money < model.price"
-          @click="buyPlane(model.id)"
-        >
-          {{ money >= model.price ? '购买' : '资金不足' }}
-        </button>
-      </div>
-    </div>
-  </div>
-
-  <!-- 地铁商店 -->
-  <div v-if="currentTab === 'metros'" class="shop-content">
-    <h3>🚇 地铁商店</h3>
-    <div class="product-grid">
-      <div v-for="model in metroModels" :key="model.id" class="product-card">
-        <div class="product-header">
-          <h4>{{ model.name }}</h4>
-          <span class="product-price">¥{{ formatMoney(model.price) }}</span>
-        </div>
-        <span class="power-tag electric">⚡ 电网供电</span>
-        <p class="product-desc">{{ model.description }}</p>
-        <div class="product-stats">
-          <span>👥 容量: {{ model.capacity }}人</span>
-          <span>🚀 速度: {{ model.speed }}km/h</span>
-        </div>
-        <button
-          class="buy-btn"
-          :disabled="money < model.price"
-          @click="buyMetro(model.id)"
-        >
-          {{ money >= model.price ? '购买' : '资金不足' }}
-        </button>
-      </div>
-    </div>
-  </div>
-
-  <!-- 高铁商店 -->
-  <div v-if="currentTab === 'hsrs'" class="shop-content">
-    <h3>🚄 高铁商店</h3>
-    <div class="product-grid">
-      <div v-for="model in hsrModels" :key="model.id" class="product-card">
-        <div class="product-header">
-          <h4>{{ model.name }}</h4>
-          <span class="product-price">¥{{ formatMoney(model.price) }}</span>
-        </div>
-        <span class="power-tag electric">⚡ 接触网供电</span>
-        <p class="product-desc">{{ model.description }}</p>
-        <div class="product-stats">
-          <span>👥 容量: {{ model.capacity }}人</span>
-          <span>🚀 速度: {{ model.speed }}km/h</span>
-        </div>
-        <button
-          class="buy-btn"
-          :disabled="money < model.price"
-          @click="buyHSR(model.id)"
-        >
-          {{ money >= model.price ? '购买' : '资金不足' }}
-        </button>
-      </div>
-    </div>
-  </div>
-
-  <!-- 共享单车商店 -->
-  <div v-if="currentTab === 'bikes'" class="shop-content">
-    <h3>🚲 共享单车商店</h3>
-    <div class="bike-shop">
-      <div class="info-box">
-        <p>当前拥有: <strong>{{ totalBikes }}</strong> 辆</p>
-        <p>正在使用: <strong>{{ activeRentals }}</strong> 辆</p>
-        <p>单价: <strong>¥800</strong> / 辆</p>
-      </div>
-      <div class="bike-purchase">
-        <input
-          type="number"
-          v-model.number="bikeQuantity"
-          min="1"
-          max="100"
-          class="quantity-input"
-        />
-        <button
-          class="buy-btn"
-          :disabled="money < bikeQuantity * 800"
-          @click="buyBikes"
-        >
-          购买 {{ bikeQuantity }} 辆 (¥{{ formatMoney(bikeQuantity * 800) }})
-        </button>
-      </div>
-    </div>
-  </div>
-
-  <!-- 升级商店 -->
-  <div v-if="currentTab === 'upgrades'" class="shop-content">
-    <h3>🔧 车辆升级</h3>
-
-    <div class="upgrade-section">
-      <h4>🚍 长途巴士升级</h4>
-      <div class="upgrade-list">
-        <div v-for="coach in coaches" :key="coach.id" class="upgrade-item">
-          <span class="vehicle-name">
-            {{ getBusModel(coach.modelId)?.name }}
-            <span class="power-mini" :class="coach.powerType">
-              {{ coach.powerType === 'electric' ? '⚡ 电动' : '⛽ 燃油' }}
-            </span>
+    <!-- 城市巴士商店 -->
+    <div v-if="currentTab === 'buses'" class="shop-content">
+      <h3>🚌 城市巴士商店</h3>
+      <div class="product-grid">
+        <div v-for="model in cityBusModels" :key="model.id" class="product-card">
+          <div class="product-header">
+            <h4>{{ model.name }}</h4>
+            <span class="product-price">¥{{ formatMoney(model.price) }}</span>
+          </div>
+          <span class="power-tag" :class="model.powerType">
+            {{ model.powerType === 'electric' ? '⚡ 电动' : '⛽ 燃油' }}
           </span>
-          <div class="upgrade-buttons">
-            <button
-              v-if="!coach.hasEntertainment"
-              class="upgrade-btn"
-              :disabled="money < 50000"
-              @click="upgradeVehicle(coach.id, 'coach', 'entertainment')"
-            >
-              娱乐系统 (¥50,000)
-            </button>
-            <span v-else class="upgrade-done">✅ 娱乐系统</span>
-
-            <button
-              v-if="!coach.hasWiFi"
-              class="upgrade-btn"
-              :disabled="money < 30000"
-              @click="upgradeVehicle(coach.id, 'coach', 'wifi')"
-            >
-              WiFi (¥30,000)
-            </button>
-            <span v-else class="upgrade-done">✅ WiFi</span>
+          <p class="product-desc">{{ model.description }}</p>
+          <div class="product-stats">
+            <span>👥 容量: {{ model.capacity }}人</span>
+            <span>🚀 速度: {{ model.speed }}km/h</span>
+            <span>📊 效率: {{ model.energyEfficiency }}</span>
           </div>
+          <button
+            class="buy-btn"
+            :disabled="money < model.price"
+            @click="buyBus(model.id)"
+          >
+            {{ money >= model.price ? '购买' : '资金不足' }}
+          </button>
         </div>
       </div>
     </div>
 
-    <div class="upgrade-section" v-if="companyLevel >= 6">
-      <h4>✈️ 飞机升级</h4>
-      <div class="upgrade-list">
-        <div v-for="plane in planes" :key="plane.id" class="upgrade-item">
-          <span class="vehicle-name">{{ getPlaneModel(plane.modelId)?.name }}</span>
-          <div class="upgrade-buttons">
-            <button
-              v-if="!plane.hasEntertainment"
-              class="upgrade-btn"
-              :disabled="money < 50000"
-              @click="upgradeVehicle(plane.id, 'plane', 'entertainment')"
-            >
-              娱乐系统 (¥50,000)
-            </button>
-            <span v-else class="upgrade-done">✅ 娱乐系统</span>
-
-            <button
-              v-if="!plane.hasWiFi"
-              class="upgrade-btn"
-              :disabled="money < 30000"
-              @click="upgradeVehicle(plane.id, 'plane', 'wifi')"
-            >
-              WiFi (¥30,000)
-            </button>
-            <span v-else class="upgrade-done">✅ WiFi</span>
+    <!-- 长途巴士商店 -->
+    <div v-if="currentTab === 'coaches'" class="shop-content">
+      <h3>🚍 长途巴士商店</h3>
+      <div class="product-grid">
+        <div v-for="model in coachModels" :key="model.id" class="product-card">
+          <div class="product-header">
+            <h4>{{ model.name }}</h4>
+            <span class="product-price">¥{{ formatMoney(model.price) }}</span>
           </div>
+          <span class="power-tag" :class="model.powerType">
+            {{ model.powerType === 'electric' ? '⚡ 电动' : '⛽ 燃油' }}
+          </span>
+          <p class="product-desc">{{ model.description }}</p>
+          <div class="product-stats">
+            <span>👥 容量: {{ model.capacity }}人</span>
+            <span>🚀 速度: {{ model.speed }}km/h</span>
+            <span>📊 效率: {{ model.energyEfficiency }}</span>
+          </div>
+          <button
+            class="buy-btn"
+            :disabled="money < model.price"
+            @click="buyBus(model.id)"
+          >
+            {{ money >= model.price ? '购买' : '资金不足' }}
+          </button>
         </div>
       </div>
     </div>
 
-    <div class="upgrade-section" v-if="companyLevel >= 10">
-      <h4>🚇 地铁升级</h4>
-      <div class="upgrade-list">
-        <div v-for="metro in metros" :key="metro.id" class="upgrade-item">
-          <span class="vehicle-name">{{ getMetroModel(metro.modelId)?.name }}</span>
-          <div class="upgrade-buttons">
-            <button
-              v-if="!metro.hasWiFi"
-              class="upgrade-btn"
-              :disabled="money < 30000"
-              @click="upgradeVehicle(metro.id, 'metro', 'wifi')"
-            >
-              WiFi (¥30,000)
-            </button>
-            <span v-else class="upgrade-done">✅ WiFi</span>
+    <!-- 的士商店 -->
+    <div v-if="currentTab === 'taxis'" class="shop-content">
+      <h3>🚕 的士商店</h3>
+      <div class="product-grid">
+        <div v-for="model in taxiModels" :key="model.id" class="product-card">
+          <div class="product-header">
+            <h4>{{ model.name }}</h4>
+            <span class="product-price">¥{{ formatMoney(model.price) }}</span>
           </div>
+          <span class="power-tag" :class="model.powerType">
+            {{ model.powerType === 'electric' ? '⚡ 电动' : '⛽ 燃油' }}
+          </span>
+          <p class="product-desc">{{ model.description }}</p>
+          <div class="product-stats">
+            <span>👥 容量: {{ model.capacity }}人</span>
+            <span>🚀 速度: {{ model.speed }}km/h</span>
+            <span>📊 效率: {{ model.energyEfficiency }}</span>
+          </div>
+          <button
+            class="buy-btn"
+            :disabled="money < model.price"
+            @click="buyTaxi(model.id)"
+          >
+            {{ money >= model.price ? '购买' : '资金不足' }}
+          </button>
         </div>
       </div>
     </div>
 
-    <div class="upgrade-section" v-if="companyLevel >= 20">
-      <h4>🚄 高铁升级</h4>
-      <div class="upgrade-list">
-        <div v-for="hsr in highSpeedRails" :key="hsr.id" class="upgrade-item">
-          <span class="vehicle-name">{{ getHSRModel(hsr.modelId)?.name }}</span>
-          <div class="upgrade-buttons">
-            <button
-              v-if="!hsr.hasEntertainment"
-              class="upgrade-btn"
-              :disabled="money < 50000"
-              @click="upgradeVehicle(hsr.id, 'hsr', 'entertainment')"
-            >
-              娱乐系统 (¥50,000)
-            </button>
-            <span v-else class="upgrade-done">✅ 娱乐系统</span>
+    <!-- 飞机商店 -->
+    <div v-if="currentTab === 'planes'" class="shop-content">
+      <h3>✈️ 飞机商店</h3>
+      <div class="product-grid">
+        <div v-for="model in planeModels" :key="model.id" class="product-card">
+          <div class="product-header">
+            <h4>{{ model.name }}</h4>
+            <span class="product-price">¥{{ formatMoney(model.price) }}</span>
+          </div>
+          <p class="product-desc">{{ model.description }}</p>
+          <div class="product-stats">
+            <span>👥 容量: {{ model.capacity }}人</span>
+            <span>🚀 速度: {{ model.speed }}km/h</span>
+            <span>📍 航程: {{ model.range }}km</span>
+          </div>
+          <button
+            class="buy-btn"
+            :disabled="money < model.price"
+            @click="buyPlane(model.id)"
+          >
+            {{ money >= model.price ? '购买' : '资金不足' }}
+          </button>
+        </div>
+      </div>
+    </div>
 
-            <button
-              v-if="!hsr.hasWiFi"
-              class="upgrade-btn"
-              :disabled="money < 30000"
-              @click="upgradeVehicle(hsr.id, 'hsr', 'wifi')"
-            >
-              WiFi (¥30,000)
-            </button>
-            <span v-else class="upgrade-done">✅ WiFi</span>
+    <!-- 地铁商店 -->
+    <div v-if="currentTab === 'metros'" class="shop-content">
+      <h3>🚇 地铁商店</h3>
+      <div class="product-grid">
+        <div v-for="model in metroModels" :key="model.id" class="product-card">
+          <div class="product-header">
+            <h4>{{ model.name }}</h4>
+            <span class="product-price">¥{{ formatMoney(model.price) }}</span>
+          </div>
+          <span class="power-tag electric">⚡ 电网供电</span>
+          <p class="product-desc">{{ model.description }}</p>
+          <div class="product-stats">
+            <span>👥 容量: {{ model.capacity }}人</span>
+            <span>🚀 速度: {{ model.speed }}km/h</span>
+          </div>
+          <button
+            class="buy-btn"
+            :disabled="money < model.price"
+            @click="buyMetro(model.id)"
+          >
+            {{ money >= model.price ? '购买' : '资金不足' }}
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 高铁商店 -->
+    <div v-if="currentTab === 'hsrs'" class="shop-content">
+      <h3>🚄 高铁商店</h3>
+      <div class="product-grid">
+        <div v-for="model in hsrModels" :key="model.id" class="product-card">
+          <div class="product-header">
+            <h4>{{ model.name }}</h4>
+            <span class="product-price">¥{{ formatMoney(model.price) }}</span>
+          </div>
+          <span class="power-tag electric">⚡ 接触网供电</span>
+          <p class="product-desc">{{ model.description }}</p>
+          <div class="product-stats">
+            <span>👥 容量: {{ model.capacity }}人</span>
+            <span>🚀 速度: {{ model.speed }}km/h</span>
+          </div>
+          <button
+            class="buy-btn"
+            :disabled="money < model.price"
+            @click="buyHSR(model.id)"
+          >
+            {{ money >= model.price ? '购买' : '资金不足' }}
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 共享单车商店 -->
+    <div v-if="currentTab === 'bikes'" class="shop-content">
+      <h3>🚲 共享单车商店</h3>
+      <div class="bike-shop">
+        <div class="info-box">
+          <p>当前拥有: <strong>{{ totalBikes }}</strong> 辆</p>
+          <p>正在使用: <strong>{{ activeRentals }}</strong> 辆</p>
+          <p>单价: <strong>¥800</strong> / 辆</p>
+        </div>
+        <div class="bike-purchase">
+          <input
+            type="number"
+            v-model.number="bikeQuantity"
+            min="1"
+            max="100"
+            class="quantity-input"
+          />
+          <button
+            class="buy-btn"
+            :disabled="money < bikeQuantity * 800"
+            @click="buyBikes"
+          >
+            购买 {{ bikeQuantity }} 辆 (¥{{ formatMoney(bikeQuantity * 800) }})
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 升级商店 -->
+    <div v-if="currentTab === 'upgrades'" class="shop-content">
+      <h3>🔧 车辆升级</h3>
+
+      <div class="upgrade-section">
+        <h4>🚍 长途巴士升级</h4>
+        <div class="upgrade-list">
+          <div v-for="coach in coaches" :key="coach.id" class="upgrade-item">
+            <span class="vehicle-name">
+              {{ getBusModel(coach.modelId)?.name }}
+              <span class="power-mini" :class="coach.powerType">
+                {{ coach.powerType === 'electric' ? '⚡ 电动' : '⛽ 燃油' }}
+              </span>
+            </span>
+            <div class="upgrade-buttons">
+              <button
+                v-if="!coach.hasEntertainment"
+                class="upgrade-btn"
+                :disabled="money < 50000"
+                @click="upgradeVehicle(coach.id, 'coach', 'entertainment')"
+              >
+                娱乐系统 (¥50,000)
+              </button>
+              <span v-else class="upgrade-done">✅ 娱乐系统</span>
+
+              <button
+                v-if="!coach.hasWiFi"
+                class="upgrade-btn"
+                :disabled="money < 30000"
+                @click="upgradeVehicle(coach.id, 'coach', 'wifi')"
+              >
+                WiFi (¥30,000)
+              </button>
+              <span v-else class="upgrade-done">✅ WiFi</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="upgrade-section">
+        <h4>🚕 的士升级</h4>
+        <div class="upgrade-list">
+          <div v-for="taxi in taxis" :key="taxi.id" class="upgrade-item">
+            <span class="vehicle-name">
+              {{ getTaxiModel(taxi.modelId)?.name }}
+              <span class="power-mini" :class="taxi.powerType">
+                {{ taxi.powerType === 'electric' ? '⚡ 电动' : '⛽ 燃油' }}
+              </span>
+            </span>
+            <div class="upgrade-buttons">
+              <button
+                v-if="!taxi.hasWiFi"
+                class="upgrade-btn"
+                :disabled="money < 30000"
+                @click="upgradeVehicle(taxi.id, 'taxi', 'wifi')"
+              >
+                WiFi (¥30,000)
+              </button>
+              <span v-else class="upgrade-done">✅ WiFi</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="upgrade-section" v-if="companyLevel >= 6">
+        <h4>✈️ 飞机升级</h4>
+        <div class="upgrade-list">
+          <div v-for="plane in planes" :key="plane.id" class="upgrade-item">
+            <span class="vehicle-name">{{ getPlaneModel(plane.modelId)?.name }}</span>
+            <div class="upgrade-buttons">
+              <button
+                v-if="!plane.hasEntertainment"
+                class="upgrade-btn"
+                :disabled="money < 50000"
+                @click="upgradeVehicle(plane.id, 'plane', 'entertainment')"
+              >
+                娱乐系统 (¥50,000)
+              </button>
+              <span v-else class="upgrade-done">✅ 娱乐系统</span>
+
+              <button
+                v-if="!plane.hasWiFi"
+                class="upgrade-btn"
+                :disabled="money < 30000"
+                @click="upgradeVehicle(plane.id, 'plane', 'wifi')"
+              >
+                WiFi (¥30,000)
+              </button>
+              <span v-else class="upgrade-done">✅ WiFi</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="upgrade-section" v-if="companyLevel >= 10">
+        <h4>🚇 地铁升级</h4>
+        <div class="upgrade-list">
+          <div v-for="metro in metros" :key="metro.id" class="upgrade-item">
+            <span class="vehicle-name">{{ getMetroModel(metro.modelId)?.name }}</span>
+            <div class="upgrade-buttons">
+              <button
+                v-if="!metro.hasWiFi"
+                class="upgrade-btn"
+                :disabled="money < 30000"
+                @click="upgradeVehicle(metro.id, 'metro', 'wifi')"
+              >
+                WiFi (¥30,000)
+              </button>
+              <span v-else class="upgrade-done">✅ WiFi</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="upgrade-section" v-if="companyLevel >= 20">
+        <h4>🚄 高铁升级</h4>
+        <div class="upgrade-list">
+          <div v-for="hsr in highSpeedRails" :key="hsr.id" class="upgrade-item">
+            <span class="vehicle-name">{{ getHSRModel(hsr.modelId)?.name }}</span>
+            <div class="upgrade-buttons">
+              <button
+                v-if="!hsr.hasEntertainment"
+                class="upgrade-btn"
+                :disabled="money < 50000"
+                @click="upgradeVehicle(hsr.id, 'hsr', 'entertainment')"
+              >
+                娱乐系统 (¥50,000)
+              </button>
+              <span v-else class="upgrade-done">✅ 娱乐系统</span>
+
+              <button
+                v-if="!hsr.hasWiFi"
+                class="upgrade-btn"
+                :disabled="money < 30000"
+                @click="upgradeVehicle(hsr.id, 'hsr', 'wifi')"
+              >
+                WiFi (¥30,000)
+              </button>
+              <span v-else class="upgrade-done">✅ WiFi</span>
+            </div>
           </div>
         </div>
       </div>
     </div>
   </div>
-</div>
 </template>
 
 <script>
 import { computed, ref } from 'vue'
 import { useStore } from 'vuex'
 import busModels from '../data/busModels'
+import taxiModels from '../data/taxiModels'
 import planeModels from '../data/planeModels'
 import metroModels from '../data/metroModels'
 import highSpeedRailModels from '../data/highSpeedRailModels'
@@ -318,6 +373,7 @@ export default {
     const companyLevel = computed(() => store.state.companyLevel)
     const buses = computed(() => store.state.buses)
     const coaches = computed(() => store.state.buses.filter(b => b.busType === 'coach'))
+    const taxis = computed(() => store.state.taxis)
     const planes = computed(() => store.state.planes)
     const metros = computed(() => store.state.metros)
     const highSpeedRails = computed(() => store.state.highSpeedRails)
@@ -327,6 +383,7 @@ export default {
     const tabs = computed(() => [
       { id: 'buses', name: '城市巴士', icon: '🚌', locked: false },
       { id: 'coaches', name: '长途巴士', icon: '🚍', locked: false },
+      { id: 'taxis', name: '的士', icon: '🚕', locked: false },
       { id: 'planes', name: '飞机', icon: '✈️', locked: companyLevel.value < 6 },
       { id: 'metros', name: '地铁', icon: '🚇', locked: companyLevel.value < 10 },
       { id: 'hsrs', name: '高铁', icon: '🚄', locked: companyLevel.value < 20 },
@@ -347,11 +404,13 @@ export default {
     }
 
     const getBusModel = (modelId) => store.getters.getBusModel(modelId)
+    const getTaxiModel = (modelId) => store.getters.getTaxiModel(modelId)
     const getPlaneModel = (modelId) => store.getters.getPlaneModel(modelId)
     const getMetroModel = (modelId) => store.getters.getMetroModel(modelId)
     const getHSRModel = (modelId) => store.getters.getHSRModel(modelId)
 
     const buyBus = (modelId) => store.dispatch('buyBus', modelId)
+    const buyTaxi = (modelId) => store.dispatch('buyTaxi', modelId)
     const buyPlane = (modelId) => store.dispatch('buyPlane', modelId)
     const buyMetro = (modelId) => store.dispatch('buyMetro', modelId)
     const buyHSR = (modelId) => store.dispatch('buyHSR', modelId)
@@ -368,12 +427,14 @@ export default {
       companyLevel,
       buses,
       coaches,
+      taxis,
       planes,
       metros,
       highSpeedRails,
       totalBikes,
       activeRentals,
       busModels,
+      taxiModels,
       cityBusModels,
       coachModels,
       planeModels,
@@ -381,10 +442,12 @@ export default {
       hsrModels: highSpeedRailModels,
       formatMoney,
       getBusModel,
+      getTaxiModel,
       getPlaneModel,
       getMetroModel,
       getHSRModel,
       buyBus,
+      buyTaxi,
       buyPlane,
       buyMetro,
       buyHSR,

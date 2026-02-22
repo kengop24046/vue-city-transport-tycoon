@@ -9,6 +9,13 @@
           <p class="big-number">{{ activeBuses }} / {{ totalBuses }}</p>
         </div>
       </div>
+      <div class="stat-card">
+        <div class="stat-card-icon">🚕</div>
+        <div class="stat-card-content">
+          <h3>运营的士</h3>
+          <p class="big-number">{{ activeTaxis }} / {{ totalTaxis }}</p>
+        </div>
+      </div>
       <div class="stat-card" v-if="companyLevel >= 6">
         <div class="stat-card-icon">✈️</div>
         <div class="stat-card-content">
@@ -67,19 +74,19 @@
           <p v-if="recentIncomes.length === 0">暂无收入记录</p>
           <div v-for="(income, index) in recentIncomes" :key="index" class="income-item">
             <span>{{ income.description }}</span>
-            <span class="income-amount">+ {{ formatMoney(income.amount) }}</span>
+            <span class="income-amount">+ ¥{{ formatMoney(income.amount) }}</span>
           </div>
         </div>
       </div>
 
       <div class="dashboard-section">
-        <h3>⬆️ 下一等级</h3>
+        <h3>⭐ 下一等级</h3>
         <div class="next-level-info">
-          <p>还需 <strong> {{ formatMoney(experienceToNextLevel - experience) }}</strong> 经验</p>
+          <p>还需 <strong>¥{{ formatMoney(experienceToNextLevel - experience) }}</strong> 经验</p>
           <div class="exp-bar-large">
             <div class="exp-fill-large" :style="{ width: `${(experience / experienceToNextLevel) * 100}%` }"></div>
           </div>
-          <p v-if="nextLevelUnlock" class="unlock-hint"> {{ nextLevelUnlock }}</p>
+          <p v-if="nextLevelUnlock" class="unlock-hint">🔓 {{ nextLevelUnlock }}</p>
         </div>
       </div>
     </div>
@@ -102,6 +109,9 @@ export default {
 
     const totalBuses = computed(() => store.state.buses.length)
     const activeBuses = computed(() => store.state.buses.filter(b => b.status === 'running' && b.routeId).length)
+    
+    const totalTaxis = computed(() => store.state.taxis.length)
+    const activeTaxis = computed(() => store.state.taxis.filter(t => t.driverId && t.status !== 'offline').length)
 
     const totalPlanes = computed(() => store.state.planes.length)
     const activePlanes = computed(() => store.state.planes.filter(p => p.status === 'running' && p.routeId).length)
@@ -136,11 +146,11 @@ export default {
 
     const nextLevelUnlock = computed(() => {
       const level = companyLevel.value
-      if (level === 5) return '6级解锁✈️飞机系统!'
-      if (level === 9) return '10级解锁🚇地铁系统!'
+      if (level === 5) return '6级解锁✈️ 飞机系统!'
+      if (level === 9) return '10级解锁🚇 地铁系统!'
       if (level === 19) return '20级解锁🚄高铁系统!'
-      if (level < 30) return '更多🏙️城市和🛣️线路等待解锁!'
-      return '已达到最高等级🎉!'
+      if (level < 30) return '更多🏙️城市和 🛣️线路等待解锁!'
+      return '已达到最高等级🎉'
     })
 
     const formatMoney = (amount) => {
@@ -159,6 +169,8 @@ export default {
       totalPassengers,
       totalBuses,
       activeBuses,
+      totalTaxis,
+      activeTaxis,
       totalPlanes,
       activePlanes,
       totalMetros,

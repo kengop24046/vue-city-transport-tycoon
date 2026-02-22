@@ -1,7 +1,6 @@
 <template>
   <div class="shared-bike">
     <h2>🚲 共享单车</h2>
-    
     <div class="bike-overview">
       <div class="overview-card">
         <div class="overview-icon">🚲</div>
@@ -51,12 +50,13 @@
           <div class="rental-info">
             <span class="rental-icon">🚲</span>
             <div class="rental-details">
+              <p class="rental-road">📍 {{ rental.rentalRoad || '城市道路' }}</p>
               <p class="rental-duration">{{ rental.hours }} 小时</p>
               <p class="rental-cost">¥{{ rental.hours * rental.rate }}</p>
             </div>
           </div>
           <div class="rental-progress">
-            <div 
+            <div
               class="rental-progress-fill" 
               :style="{ width: `${rentalProgress(rental)}%` }"
             ></div>
@@ -68,11 +68,11 @@
     <div class="bike-tips">
       <h3>💡 经营提示</h3>
       <ul>
-        <li>共享单车每小时收费 ¥5，不足1小时按1小时计算</li>
-        <li>租赁是随机发生的，保持足够的可用车辆可以获得更多收入</li>
+        <li>共享单车每小时收费 ¥5,不足1小时按1小时计算</li>
+        <li>租赁是随机发生的,保持足够的可用车辆可以获得更多收入</li>
         <li>雇佣单车维修员可以保持车辆状况良好</li>
-        <li>车辆状况越好，越容易被租赁</li>
-        <li>离线时也会结算共享单车收入！</li>
+        <li>车辆状况越好,越容易被租赁</li>
+        <li>离线时也会结算共享单车收入!</li>
       </ul>
     </div>
   </div>
@@ -91,13 +91,13 @@ export default {
     const activeRentalsList = computed(() => store.state.sharedBikes.activeRentals)
     const bikeCondition = computed(() => store.state.sharedBikes.bikeCondition)
     const employees = computed(() => store.state.employees)
-    
+
     const activeRentals = computed(() => activeRentalsList.value.length)
     const availableBikes = computed(() => totalBikes.value - activeRentals.value)
     const bikeRepairers = computed(() => 
       (employees.value.bikeRepairers || []).filter(e => e.hired).length
     )
-    
+
     const rentalProgress = (rental) => {
       const elapsed = Date.now() - rental.startTime
       const total = rental.hours * 3600000
@@ -202,8 +202,9 @@ export default {
 
 .empty-state {
   text-align: center;
-  padding: 40px 20px;
+  padding: 60px 20px;
   color: #888;
+  font-size: 18px;
 }
 
 .rentals-list {
@@ -234,6 +235,13 @@ export default {
   flex: 1;
 }
 
+.rental-road {
+  margin: 0 0 3px 0;
+  color: #667eea;
+  font-size: 13px;
+  font-weight: 500;
+}
+
 .rental-duration {
   margin: 0 0 3px 0;
   color: #333;
@@ -243,7 +251,7 @@ export default {
 
 .rental-cost {
   margin: 0;
-  color: #667eea;
+  color: #f5576c;
   font-size: 16px;
   font-weight: bold;
 }

@@ -1,6 +1,6 @@
 import { createStore } from 'vuex'
 import { encryptData, decryptData } from '../utils/encryption'
-import { calculateOfflineEarnings, updateVehicleProgress } from '../utils/gameLogic'
+import { calculateOfflineEarnings, updateVehicleProgress, updateTaxiProgress } from '../utils/gameLogic'
 import macauRoutes from '../data/macauRoutes'
 import hongkongRoutes from '../data/hongkongRoutes'
 import zhuhaiRoutes from '../data/zhuhaiRoutes'
@@ -9,6 +9,7 @@ import shenzhenRoutes from '../data/shenzhenRoutes'
 import beijingRoutes from '../data/beijingRoutes'
 import shanghaiRoutes from '../data/shanghaiRoutes'
 import busModels from '../data/busModels'
+import taxiModels from '../data/taxiModels'
 import planeModels from '../data/planeModels'
 import metroModels from '../data/metroModels'
 import highSpeedRailModels from '../data/highSpeedRailModels'
@@ -42,6 +43,10 @@ const getInitialState = () => ({
     busDrivers: [
       { id: 1, name: '陈司机', salary: 3000, hired: true },
       { id: 2, name: '李司机', salary: 3200, hired: true },
+    ],
+    taxiDrivers: [
+      { id: 1, name: '王司机', salary: 3500, hired: true },
+      { id: 2, name: '张司机', salary: 3600, hired: true },
     ],
     pilots: [],
     flightAttendants: [],
@@ -105,6 +110,49 @@ const getInitialState = () => ({
       isAtTerminal: false
     }
   ],
+  // 新增的士数组
+  taxis: [
+    {
+      id: 1,
+      modelId: 'byd_qin_ev',
+      powerType: 'electric',
+      driverId: 1,
+      cityId: 'macau',
+      status: 'idle',
+      currentRoad: '巴波沙大马路',
+      targetRoad: '',
+      progress: 0,
+      passengers: 0,
+      currentFare: 0,
+      totalMileage: 0,
+      battery: 100,
+      fuel: 0,
+      cleanliness: 100,
+      needsCharge: false,
+      needsRefuel: false,
+      needsCleaning: false
+    },
+    {
+      id: 2,
+      modelId: 'toyota_corolla',
+      powerType: 'fuel',
+      driverId: 2,
+      cityId: 'macau',
+      status: 'idle',
+      currentRoad: '提督马路',
+      targetRoad: '',
+      progress: 0,
+      passengers: 0,
+      currentFare: 0,
+      totalMileage: 0,
+      battery: 0,
+      fuel: 100,
+      cleanliness: 100,
+      needsCharge: false,
+      needsRefuel: false,
+      needsCleaning: false
+    }
+  ],
   planes: [],
   metros: [],
   highSpeedRails: [],
@@ -149,6 +197,11 @@ export default createStore({
       const hiredConductorsCount = state.employees.conductors.filter(d => d.hired).length
       return hiredDriversCount > assignedCoachCount && hiredConductorsCount > assignedCoachCount
     },
+    availableTaxiDrivers: (state) => {
+      const assignedTaxiCount = state.taxis.filter(t => t.driverId).length
+      const hiredDriversCount = state.employees.taxiDrivers.filter(d => d.hired).length
+      return hiredDriversCount > assignedTaxiCount
+    },
 
     availablePilots: (state) => {
       if (state.companyLevel < 6) return false
@@ -181,35 +234,38 @@ export default createStore({
 
     totalPassengers: (state) => {
       const busPassengers = state.buses.reduce((sum, b) => sum + b.passengers, 0)
+      const taxiPassengers = state.taxis.reduce((sum, t) => sum + t.passengers, 0)
       const planePassengers = state.planes.reduce((sum, p) => sum + p.passengers, 0)
       const metroPassengers = state.metros.reduce((sum, m) => sum + m.passengers, 0)
       const hsrPassengers = state.highSpeedRails.reduce((sum, h) => sum + h.passengers, 0)
-      return busPassengers + planePassengers + metroPassengers + hsrPassengers
+      return busPassengers + taxiPassengers + planePassengers + metroPassengers + hsrPassengers
     },
 
     getBusModel: () => (modelId) => {
       return busModels.find(m => m.id === modelId)
     },
-
+    getTaxiModel: () => (modelId) => {
+      return taxiModels.find(m => m.id === modelId)
+    },
     getPlaneModel: () => (modelId) => {
       return planeModels.find(m => m.id === modelId)
     },
-
     getMetroModel: () => (modelId) => {
       return metroModels.find(m => m.id === modelId)
     },
-
     getHSRModel: () => (modelId) => {
       return highSpeedRailModels.find(m => m.id === modelId)
     },
-
     getRoute: () => (routeId) => {
       const cityPrefix = routeId.split('_')[0]
       return allRoutes[cityPrefix]?.find(r => r.id === routeId) || null
     },
-
     getCityInfo: () => (cityId) => {
       return cities.find(c => c.id === cityId)
+    },
+    getCityRoads: () => (cityId) => {
+      const city = cities.find(c => c.id === cityId)
+      return city?.roads || []
     }
   },
 
@@ -303,6 +359,37 @@ export default createStore({
       const bus = state.buses.find(b => b.id === id)
       if (bus) {
         Object.assign(bus, updates)
+      }
+    },
+
+    // 的士相关
+    ADD_TAXI(state, taxi) {
+      const model = taxiModels.find(m => m.id === taxi.modelId)
+      const initBase = {
+        id: state.taxis.length + 1,
+        status: 'idle',
+        driverId: null,
+        cityId: 'macau',
+        currentRoad: '',
+        targetRoad: '',
+        progress: 0,
+        passengers: 0,
+        currentFare: 0,
+        totalMileage: 0,
+        cleanliness: 100,
+        needsCleaning: false,
+        ...taxi
+      }
+      const initData = model.powerType === 'electric'
+        ? { ...initBase, battery: 100, fuel: 0, needsCharge: false, needsRefuel: false, powerType: 'electric' }
+        : { ...initBase, fuel: 100, battery: 0, needsRefuel: false, needsCharge: false, powerType: 'fuel' }
+      state.taxis.push(initData)
+    },
+
+    UPDATE_TAXI(state, { id, updates }) {
+      const taxi = state.taxis.find(t => t.id === id)
+      if (taxi) {
+        Object.assign(taxi, updates)
       }
     },
 
@@ -509,6 +596,34 @@ export default createStore({
         }
       })
 
+      // 更新的士
+      state.taxis.forEach(taxi => {
+        if (taxi.driverId && (taxi.status === 'idle' || taxi.status === 'hasPassenger')) {
+          const updates = updateTaxiProgress(taxi, getters)
+          commit('UPDATE_TAXI', { id: taxi.id, updates })
+
+          if (updates.earnedMoney) {
+            commit('ADD_MONEY', updates.earnedMoney)
+            commit('ADD_FINANCIAL_RECORD', {
+              type: 'income',
+              category: 'taxi',
+              amount: updates.earnedMoney,
+              description: `的士运营车费收入`
+            })
+          }
+
+          if (updates.electricityCost) {
+            commit('ADD_MONEY', -updates.electricityCost)
+            commit('ADD_FINANCIAL_RECORD', {
+              type: 'expense',
+              category: 'electricity',
+              amount: updates.electricityCost,
+              description: `的士运营电费`
+            })
+          }
+        }
+      })
+
       // 更新飞机
       if (state.companyLevel >= 6) {
         state.planes.forEach(plane => {
@@ -594,10 +709,14 @@ export default createStore({
         const rentalHours = Math.ceil(Math.random() * 3)
         const availableBikes = state.sharedBikes.totalBikes - state.sharedBikes.activeRentals.length
         if (availableBikes > 0) {
+          const cityRoads = getters.getCityRoads(state.unlockedCities[0])
+          const randomRoad = cityRoads[Math.floor(Math.random() * cityRoads.length)] || '城市道路'
+          
           const rental = {
             startTime: Date.now(),
             hours: rentalHours,
-            rate: 5
+            rate: 5,
+            rentalRoad: randomRoad
           }
           commit('ADD_BIKE_RENTAL', rental)
         }
@@ -701,6 +820,63 @@ export default createStore({
       }
     },
 
+    // 的士加油
+    refuelTaxi({ state, commit, getters }, taxiId) {
+      const taxi = state.taxis.find(t => t.id === taxiId)
+      if (taxi && taxi.powerType === 'fuel' && taxi.status === 'idle') {
+        const model = getters.getTaxiModel(taxi.modelId)
+        const cost = (100 - taxi.fuel) * 2
+        if (state.money >= cost) {
+          commit('ADD_MONEY', -cost)
+          commit('UPDATE_TAXI', { id: taxiId, updates: { fuel: 100, needsRefuel: false } })
+          commit('ADD_FINANCIAL_RECORD', {
+            type: 'expense',
+            category: 'fuel',
+            amount: cost,
+            description: `的士加油 - ${model.name}`
+          })
+        }
+      }
+    },
+
+    // 的士充电
+    chargeTaxi({ state, commit, getters }, taxiId) {
+      const taxi = state.taxis.find(t => t.id === taxiId)
+      if (taxi && taxi.powerType === 'electric' && taxi.status === 'idle') {
+        const model = getters.getTaxiModel(taxi.modelId)
+        const cost = (100 - taxi.battery) * 0.8
+        if (state.money >= cost) {
+          commit('ADD_MONEY', -cost)
+          commit('UPDATE_TAXI', { id: taxiId, updates: { battery: 100, needsCharge: false } })
+          commit('ADD_FINANCIAL_RECORD', {
+            type: 'expense',
+            category: 'electricity',
+            amount: cost,
+            description: `的士充电 - ${model.name}`
+          })
+        }
+      }
+    },
+
+    // 的士清洁
+    cleanTaxi({ state, commit, getters }, taxiId) {
+      const taxi = state.taxis.find(t => t.id === taxiId)
+      if (taxi && taxi.status === 'idle') {
+        const model = getters.getTaxiModel(taxi.modelId)
+        const cost = 50
+        if (state.money >= cost) {
+          commit('ADD_MONEY', -cost)
+          commit('UPDATE_TAXI', { id: taxiId, updates: { cleanliness: 100, needsCleaning: false } })
+          commit('ADD_FINANCIAL_RECORD', {
+            type: 'expense',
+            category: 'cleaning',
+            amount: cost,
+            description: `的士清洁 - ${model.name}`
+          })
+        }
+      }
+    },
+
     refuelPlane({ state, commit, getters }, planeId) {
       if (state.companyLevel < 6) return false
       const plane = state.planes.find(p => p.id === planeId)
@@ -749,6 +925,23 @@ export default createStore({
           category: 'purchase',
           amount: model.price,
           description: `购买巴士 - ${model.name}`
+        })
+        return true
+      }
+      return false
+    },
+
+    // 购买的士
+    buyTaxi({ state, commit, getters }, modelId) {
+      const model = getters.getTaxiModel(modelId)
+      if (model && state.money >= model.price) {
+        commit('ADD_MONEY', -model.price)
+        commit('ADD_TAXI', { modelId, powerType: model.powerType })
+        commit('ADD_FINANCIAL_RECORD', {
+          type: 'expense',
+          category: 'purchase',
+          amount: model.price,
+          description: `购买的士 - ${model.name}`
         })
         return true
       }
@@ -843,6 +1036,7 @@ export default createStore({
     hireEmployee({ state, commit }, { type, name, salary }) {
       const costs = {
         busDrivers: 5000,
+        taxiDrivers: 6000,
         pilots: 30000,
         flightAttendants: 15000,
         conductors: 8000,
@@ -924,6 +1118,10 @@ export default createStore({
         case 'coach':
           vehicle = state.buses.find(b => b.id === vehicleId && b.busType === 'coach')
           updateFn = 'UPDATE_BUS'
+          break
+        case 'taxi':
+          vehicle = state.taxis.find(t => t.id === vehicleId)
+          updateFn = 'UPDATE_TAXI'
           break
         case 'plane':
           if (state.companyLevel < 6) return false

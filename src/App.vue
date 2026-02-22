@@ -1,34 +1,35 @@
 <template>
-<div class="app-container">
-  <Header />
-  <div class="main-content">
-    <div class="nav-tabs">
-      <button 
-        v-for="tab in tabs"
-        :key="tab.id"
-        :class="{ active: currentTab === tab.id, locked: tab.locked }"
-        @click="handleTabClick(tab)"
-      >
-        {{ tab.icon }} {{ tab.name }}
-        <span v-if="tab.locked" class="lock-icon">🔒</span>
-      </button>
-    </div>
-    <div class="tab-content">
-      <Dashboard v-if="currentTab === 'dashboard'" />
-      <BusStatus v-else-if="currentTab === 'busStatus'" />
-      <CoachStatus v-else-if="currentTab === 'coachStatus'" />
-      <PlaneStatus v-else-if="currentTab === 'planeStatus'" />
-      <MetroStatus v-else-if="currentTab === 'metroStatus'" />
-      <HighSpeedRailStatus v-else-if="currentTab === 'hsrStatus'" />
-      <Finance v-else-if="currentTab === 'finance'" />
-      <Shop v-else-if="currentTab === 'shop'" />
-      <EmployeeManagement v-else-if="currentTab === 'employees'" />
-      <RouteManagement v-else-if="currentTab === 'routes'" />
-      <SharedBike v-else-if="currentTab === 'bikes'" />
-      <Settings v-else-if="currentTab === 'settings'" />
+  <div class="app-container">
+    <Header />
+    <div class="main-content">
+      <div class="nav-tabs">
+        <button 
+          v-for="tab in tabs"
+          :key="tab.id"
+          :class="{ active: currentTab === tab.id, locked: tab.locked }"
+          @click="handleTabClick(tab)"
+        >
+          {{ tab.icon }} {{ tab.name }}
+          <span v-if="tab.locked" class="lock-icon">🔒</span>
+        </button>
+      </div>
+      <div class="tab-content">
+        <Dashboard v-if="currentTab === 'dashboard'" />
+        <BusStatus v-else-if="currentTab === 'busStatus'" />
+        <CoachStatus v-else-if="currentTab === 'coachStatus'" />
+        <TaxiStatus v-else-if="currentTab === 'taxiStatus'" />
+        <PlaneStatus v-else-if="currentTab === 'planeStatus'" />
+        <MetroStatus v-else-if="currentTab === 'metroStatus'" />
+        <HighSpeedRailStatus v-else-if="currentTab === 'hsrStatus'" />
+        <Finance v-else-if="currentTab === 'finance'" />
+        <Shop v-else-if="currentTab === 'shop'" />
+        <EmployeeManagement v-else-if="currentTab === 'employees'" />
+        <RouteManagement v-else-if="currentTab === 'routes'" />
+        <SharedBike v-else-if="currentTab === 'bikes'" />
+        <Settings v-else-if="currentTab === 'settings'" />
+      </div>
     </div>
   </div>
-</div>
 </template>
 
 <script>
@@ -38,6 +39,7 @@ import Header from './components/Header.vue'
 import Dashboard from './components/Dashboard.vue'
 import BusStatus from './components/BusStatus.vue'
 import CoachStatus from './components/CoachStatus.vue'
+import TaxiStatus from './components/TaxiStatus.vue'
 import PlaneStatus from './components/PlaneStatus.vue'
 import MetroStatus from './components/MetroStatus.vue'
 import HighSpeedRailStatus from './components/HighSpeedRailStatus.vue'
@@ -55,6 +57,7 @@ export default {
     Dashboard,
     BusStatus,
     CoachStatus,
+    TaxiStatus,
     PlaneStatus,
     MetroStatus,
     HighSpeedRailStatus,
@@ -77,6 +80,7 @@ export default {
       { id: 'dashboard', name: '总览', icon: '📊', locked: false },
       { id: 'busStatus', name: '城市巴士', icon: '🚌', locked: false },
       { id: 'coachStatus', name: '长途巴士', icon: '🚍', locked: false },
+      { id: 'taxiStatus', name: '的士运营', icon: '🚕', locked: false },
       { id: 'planeStatus', name: '飞机状态', icon: '✈️', locked: companyLevel.value < 6 },
       { id: 'metroStatus', name: '地铁状态', icon: '🚇', locked: companyLevel.value < 10 },
       { id: 'hsrStatus', name: '高铁状态', icon: '🚄', locked: companyLevel.value < 20 },
