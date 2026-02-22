@@ -12,6 +12,7 @@
             {{ getBusStatusText(bus) }}
           </span>
         </div>
+
         <div class="bus-info">
           <div class="info-row">
             <span class="info-label">🗺️ 线路</span>
@@ -37,27 +38,30 @@
           </div>
           <div class="info-row">
             <span class="info-label">👥 乘客</span>
-            <span class="info-value">{{ bus.passengers }} / {{ getBusModel(bus.modelId)?.capacity || 0 }}</span>
+            <span class="info-value">
+              {{ bus.passengers }} / {{ getBusModel(bus.modelId)?.capacity || 0 }}
+            </span>
           </div>
           <div class="progress-section">
             <div class="progress-label">
               <span>📈 到下一站进度</span>
-              <span>{{ Math.floor(bus.progress) }}%</span>
+              <span>{{ Math.floor(bus.progress || 0) }}%</span>
             </div>
             <div class="progress-bar">
-              <div class="progress-fill" :style="{ width: `${bus.progress}%` }"></div>
+              <div class="progress-fill" :style="{ width: `${bus.progress || 0}%` }"></div>
             </div>
           </div>
         </div>
+
         <div class="resource-bars">
           <div class="resource-bar" v-if="bus.powerType === 'electric'">
             <span class="resource-label">🔋 电量</span>
             <div class="bar-container">
-              <div class="bar-fill battery" :style="{ width: `${bus.battery}%` }"></div>
+              <div class="bar-fill battery" :style="{ width: `${bus.battery || 0}%` }"></div>
             </div>
-            <span class="resource-value">{{ Math.floor(bus.battery) }}%</span>
+            <span class="resource-value">{{ Math.floor(bus.battery || 0) }}%</span>
             <button
-              v-if="bus.needsCharge && bus.isAtTerminal && bus.status === 'stopped'"
+              v-if="bus.isAtTerminal && bus.status === 'stopped'"
               class="action-btn charge"
               @click="chargeBus(bus.id)"
             >
@@ -65,14 +69,15 @@
             </button>
             <span v-else-if="bus.needsCharge" class="hint-text">🔌 需到总站充电</span>
           </div>
+
           <div class="resource-bar" v-else-if="bus.powerType === 'fuel'">
             <span class="resource-label">⛽ 油量</span>
             <div class="bar-container">
-              <div class="bar-fill fuel" :style="{ width: `${bus.fuel}%` }"></div>
+              <div class="bar-fill fuel" :style="{ width: `${bus.fuel || 0}%` }"></div>
             </div>
-            <span class="resource-value">{{ Math.floor(bus.fuel) }}%</span>
+            <span class="resource-value">{{ Math.floor(bus.fuel || 0) }}%</span>
             <button 
-              v-if="bus.needsRefuel && bus.isAtTerminal && bus.status === 'stopped'"
+              v-if="bus.isAtTerminal && bus.status === 'stopped'"
               class="action-btn refuel"
               @click="refuelBus(bus.id)"
             >
@@ -80,14 +85,15 @@
             </button>
             <span v-else-if="bus.needsRefuel" class="hint-text">需到总站加油</span>
           </div>
+
           <div class="resource-bar">
             <span class="resource-label">🧹 清洁度</span>
             <div class="bar-container">
-              <div class="bar-fill cleanliness" :style="{ width: `${bus.cleanliness}%` }"></div>
+              <div class="bar-fill cleanliness" :style="{ width: `${bus.cleanliness || 0}%` }"></div>
             </div>
-            <span class="resource-value">{{ Math.floor(bus.cleanliness) }}%</span>
+            <span class="resource-value">{{ Math.floor(bus.cleanliness || 0) }}%</span>
             <button 
-              v-if="bus.needsCleaning && bus.isAtTerminal && bus.status === 'stopped'"
+              v-if="bus.isAtTerminal && bus.status === 'stopped'"
               class="action-btn clean"
               @click="cleanBus(bus.id)"
             >
@@ -96,6 +102,7 @@
             <span v-else-if="bus.needsCleaning" class="hint-text">需到总站清洁</span>
           </div>
         </div>
+
         <div class="bus-upgrades">
           <span class="upgrade-tag disabled">娱乐系统</span>
           <span class="upgrade-tag disabled">WiFi</span>
@@ -114,6 +121,7 @@ export default {
   setup() {
     const store = useStore()
 
+    // 筛选城市巴士
     const buses = computed(() => store.state.buses.filter(b => b.busType === 'city'))
 
     // 获取巴士车型信息
@@ -134,6 +142,7 @@ export default {
       return route?.name || '未知线路'
     }
 
+    // 获取当前站点
     const getCurrentStop = (bus) => {
       if (!bus.routeId) return '-'
       const route = getRoute(bus.routeId)
@@ -146,24 +155,28 @@ export default {
       if (!bus.routeId) return '-'
       const route = getRoute(bus.routeId)
       if (!route) return '-'
+      
       const currentStops = bus.direction === 'outbound' ? route.stops.outbound : route.stops.inbound
       const currentIndex = bus.currentStopIndex
 
-      if (bus.status === 'running') {
-        return currentStops[currentIndex] || '-'
-      }
-      if (bus.status === 'stopped') {
-        const nextIndex = currentIndex + 1
-        if (nextIndex < currentStops.length) {
-          return currentStops[nextIndex] || '-'
+      switch (bus.status) {
+        case 'running':
+          return currentStops[currentIndex] || '-'
+        case 'stopped': {
+          const nextIndex = currentIndex + 1
+          if (nextIndex < currentStops.length) {
+            return currentStops[nextIndex] || '-'
+          }
+          const reverseDirection = bus.direction === 'outbound' ? 'inbound' : 'outbound'
+          const reverseStops = reverseDirection === 'outbound' ? route.stops.outbound : route.stops.inbound
+          return reverseStops[0] || '-'
         }
-        const reverseDirection = bus.direction === 'outbound' ? 'inbound' : 'outbound'
-        const reverseStops = reverseDirection === 'outbound' ? route.stops.outbound : route.stops.inbound
-        return reverseStops[0] || '-'
+        default:
+          return '-'
       }
-      return '-'
     }
 
+    // 获取巴士状态文本
     const getBusStatusText = (bus) => {
       const statusMap = {
         running: '🚌 运行中',
@@ -269,6 +282,7 @@ export default {
   background: white;
   border-radius: 10px;
   padding: 15px;
+  margin-bottom: 15px;
 }
 
 .info-row {
@@ -330,7 +344,7 @@ export default {
 }
 
 .progress-section {
-  margin: 15px 0;
+  margin: 15px 0 0 0;
 }
 
 .progress-label {
@@ -365,6 +379,7 @@ export default {
   align-items: center;
   gap: 10px;
   flex-wrap: wrap;
+  justify-content: flex-start;
 }
 
 .resource-label {
@@ -380,7 +395,7 @@ export default {
   background: #e0e0e0;
   border-radius: 4px;
   overflow: hidden;
-  min-width: 100px;
+  min-width: 80px;
 }
 
 .bar-fill {
@@ -480,6 +495,10 @@ export default {
   }
   .bar-container {
     min-width: 60px;
+  }
+  .action-btn {
+    padding: 6px 8px;
+    font-size: 11px;
   }
 }
 </style>

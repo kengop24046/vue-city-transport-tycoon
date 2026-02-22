@@ -1,6 +1,6 @@
 <template>
   <div class="coach-status">
-    <h2>🚍 长途巴士运行状况</h2>
+    <h3>🚍 长途巴士运行状况</h3>
     <div v-if="coaches.length === 0" class="empty-state">
       <p>🅿️ 暂无长途巴士,快去商店购买吧!</p>
     </div>
@@ -37,15 +37,17 @@
           </div>
           <div class="info-row">
             <span class="info-label">👥 乘客</span>
-            <span class="info-value">{{ coach.passengers }} / {{ getBusModel(coach.modelId)?.capacity || 0 }}</span>
+            <span class="info-value">
+              {{ coach.passengers }} / {{ getBusModel(coach.modelId)?.capacity || 0 }}
+            </span>
           </div>
           <div class="progress-section">
             <div class="progress-label">
               <span>📈 到下一站进度</span>
-              <span>{{ Math.floor(coach.progress) }}%</span>
+              <span>{{ Math.floor(coach.progress || 0) }}%</span>
             </div>
             <div class="progress-bar">
-              <div class="progress-fill" :style="{ width: `${coach.progress}%` }"></div>
+              <div class="progress-fill" :style="{ width: `${coach.progress || 0}%` }"></div>
             </div>
           </div>
         </div>
@@ -53,11 +55,11 @@
           <div class="resource-bar" v-if="coach.powerType === 'electric'">
             <span class="resource-label">🔋 电量</span>
             <div class="bar-container">
-              <div class="bar-fill battery" :style="{ width: `${coach.battery}%` }"></div>
+              <div class="bar-fill battery" :style="{ width: `${coach.battery || 0}%` }"></div>
             </div>
-            <span class="resource-value">{{ Math.floor(coach.battery) }}%</span>
+            <span class="resource-value">{{ Math.floor(coach.battery || 0) }}%</span>
             <button
-              v-if="coach.needsCharge && coach.isAtTerminal && coach.status === 'stopped'"
+              v-if="coach.isAtTerminal && coach.status === 'stopped'"
               class="action-btn charge"
               @click="chargeBus(coach.id)"
             >
@@ -68,11 +70,11 @@
           <div class="resource-bar" v-else-if="coach.powerType === 'fuel'">
             <span class="resource-label">⛽ 油量</span>
             <div class="bar-container">
-              <div class="bar-fill fuel" :style="{ width: `${coach.fuel}%` }"></div>
+              <div class="bar-fill fuel" :style="{ width: `${coach.fuel || 0}%` }"></div>
             </div>
-            <span class="resource-value">{{ Math.floor(coach.fuel) }}%</span>
+            <span class="resource-value">{{ Math.floor(coach.fuel || 0) }}%</span>
             <button
-              v-if="coach.needsRefuel && coach.isAtTerminal && coach.status === 'stopped'"
+              v-if="coach.isAtTerminal && coach.status === 'stopped'"
               class="action-btn refuel"
               @click="refuelBus(coach.id)"
             >
@@ -83,11 +85,11 @@
           <div class="resource-bar">
             <span class="resource-label">🧹 清洁度</span>
             <div class="bar-container">
-              <div class="bar-fill cleanliness" :style="{ width: `${coach.cleanliness}%` }"></div>
+              <div class="bar-fill cleanliness" :style="{ width: `${coach.cleanliness || 0}%` }"></div>
             </div>
-            <span class="resource-value">{{ Math.floor(coach.cleanliness) }}%</span>
-            <button 
-              v-if="coach.needsCleaning && coach.isAtTerminal && coach.status === 'stopped'"
+            <span class="resource-value">{{ Math.floor(coach.cleanliness || 0) }}%</span>
+            <button
+              v-if="coach.isAtTerminal && coach.status === 'stopped'"
               class="action-btn clean"
               @click="cleanBus(coach.id)"
             >
@@ -117,22 +119,29 @@ export default {
   name: 'CoachStatus',
   setup() {
     const store = useStore()
+    
+    // 筛选长途巴士
     const coaches = computed(() => store.state.buses.filter(b => b.busType === 'coach'))
+
+    // 获取巴士车型信息
     const getBusModel = (modelId) => {
       return store.getters.getBusModel(modelId)
     }
 
+    // 获取线路完整信息
     const getRoute = (routeId) => {
       if (!routeId) return null
       return store.getters.getRoute(routeId)
     }
 
+    // 获取线路名称
     const getRouteName = (routeId) => {
       if (!routeId) return '未分配线路'
       const route = getRoute(routeId)
       return route?.name || '未知线路'
     }
 
+    // 获取当前站点
     const getCurrentStop = (coach) => {
       if (!coach.routeId) return '-'
       const route = getRoute(coach.routeId)
@@ -145,24 +154,25 @@ export default {
       if (!coach.routeId) return '-'
       const route = getRoute(coach.routeId)
       if (!route) return '-'
+      
       const currentStops = coach.direction === 'outbound' ? route.stops.outbound : route.stops.inbound
       const currentIndex = coach.currentStopIndex
 
-      if (coach.status === 'running') {
-        return currentStops[currentIndex] || '-'
-      }
-      if (coach.status === 'stopped') {
-        const nextIndex = currentIndex + 1
-        if (nextIndex < currentStops.length) {
-          return currentStops[nextIndex] || '-'
+      switch (coach.status) {
+        case 'running':
+          return currentStops[currentIndex] || '-'
+        case 'stopped': {
+          const nextIndex = currentIndex + 1
+          if (nextIndex < currentStops.length) {
+            return currentStops[nextIndex] || '-'
+          }
+          const reverseDirection = coach.direction === 'outbound' ? 'inbound' : 'outbound'
+          const reverseStops = reverseDirection === 'outbound' ? route.stops.outbound : route.stops.inbound
+          return reverseStops[0] || '-'
         }
-
-        const reverseDirection = coach.direction === 'outbound' ? 'inbound' : 'outbound'
-        const reverseStops = reverseDirection === 'outbound' ? route.stops.outbound : route.stops.inbound
-        return reverseStops[0] || '-'
+        default:
+          return '-'
       }
-      // 闲置状态
-      return '-'
     }
 
     // 获取巴士状态文本
@@ -206,7 +216,7 @@ export default {
 </script>
 
 <style scoped>
-.coach-status h2 {
+.coach-status h3 {
   margin: 0 0 25px 0;
   color: #333;
   font-size: 24px;
@@ -271,6 +281,7 @@ export default {
   background: white;
   border-radius: 10px;
   padding: 15px;
+  margin-bottom: 15px;
 }
 
 .info-row {
@@ -332,7 +343,7 @@ export default {
 }
 
 .progress-section {
-  margin: 15px 0;
+  margin: 15px 0 0 0;
 }
 
 .progress-label {
@@ -367,6 +378,7 @@ export default {
   align-items: center;
   gap: 10px;
   flex-wrap: wrap;
+  justify-content: flex-start;
 }
 
 .resource-label {
@@ -382,7 +394,7 @@ export default {
   background: rgba(255,255,255,0.2);
   border-radius: 4px;
   overflow: hidden;
-  min-width: 100px;
+  min-width: 80px;
 }
 
 .bar-fill {
@@ -477,6 +489,10 @@ export default {
   }
   .bar-container {
     min-width: 60px;
+  }
+  .action-btn {
+    padding: 6px 8px;
+    font-size: 11px;
   }
 }
 </style>
