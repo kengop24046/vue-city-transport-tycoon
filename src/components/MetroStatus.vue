@@ -59,6 +59,14 @@
               <div class="bar-fill cleanliness" :style="{ width: `${metro.cleanliness}%` }"></div>
             </div>
             <span class="resource-value">{{ Math.floor(metro.cleanliness) }}%</span>
+            <button
+              v-if="metro.status === 'stopped'"
+              class="action-btn-small clean"
+              @click="cleanMetro(metro.id)"
+            >
+              清洁
+            </button>
+            <span v-else-if="metro.needsCleaning" class="hint-text">需到站清洁</span>
           </div>
         </div>
 
@@ -106,12 +114,17 @@ export default {
       return route.stops[metro.currentStopIndex] || '-'
     }
 
+    const cleanMetro = (metroId) => {
+      store.dispatch('cleanMetro', metroId)
+    }
+
     return {
       companyLevel,
       metros,
       getMetroModel,
       getRouteName,
-      getNextStop
+      getNextStop,
+      cleanMetro
     }
   }
 }
@@ -218,6 +231,8 @@ export default {
   justify-content: space-between;
   margin-bottom: 10px;
   font-size: 14px;
+  flex-wrap: wrap;
+  gap: 5px;
 }
 
 .info-label {
@@ -269,12 +284,15 @@ export default {
   display: flex;
   align-items: center;
   gap: 10px;
+  flex-wrap: wrap;
+  justify-content: flex-start;
 }
 
 .resource-label {
   font-size: 12px;
   color: #666;
   width: 70px;
+  flex-shrink: 0;
 }
 
 .bar-container {
@@ -283,6 +301,7 @@ export default {
   background: #e0e0e0;
   border-radius: 4px;
   overflow: hidden;
+  min-width: 60px;
 }
 
 .bar-fill {
@@ -299,6 +318,36 @@ export default {
   color: #333;
   width: 40px;
   text-align: right;
+  flex-shrink: 0;
+}
+
+.hint-text {
+  font-size: 11px;
+  color: #2196f3;
+  width: 80px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.action-btn-small {
+  padding: 6px 10px;
+  border: none;
+  border-radius: 6px;
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.action-btn-small.clean {
+  background: linear-gradient(135deg, #2196f3, #03a9f4);
+  color: white;
+}
+
+.action-btn-small:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
 }
 
 .metro-upgrades {

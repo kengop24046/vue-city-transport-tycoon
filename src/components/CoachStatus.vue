@@ -59,7 +59,7 @@
             </div>
             <span class="resource-value">{{ Math.floor(coach.battery || 0) }}%</span>
             <button
-              v-if="coach.isAtTerminal && coach.status === 'stopped'"
+              v-if="getBusCanOperate(coach)"
               class="action-btn charge"
               @click="chargeBus(coach.id)"
             >
@@ -74,7 +74,7 @@
             </div>
             <span class="resource-value">{{ Math.floor(coach.fuel || 0) }}%</span>
             <button
-              v-if="coach.isAtTerminal && coach.status === 'stopped'"
+              v-if="getBusCanOperate(coach)"
               class="action-btn refuel"
               @click="refuelBus(coach.id)"
             >
@@ -89,7 +89,7 @@
             </div>
             <span class="resource-value">{{ Math.floor(coach.cleanliness || 0) }}%</span>
             <button
-              v-if="coach.isAtTerminal && coach.status === 'stopped'"
+              v-if="getBusCanOperate(coach)"
               class="action-btn clean"
               @click="cleanBus(coach.id)"
             >
@@ -119,29 +119,27 @@ export default {
   name: 'CoachStatus',
   setup() {
     const store = useStore()
-    
-    // 筛选长途巴士
     const coaches = computed(() => store.state.buses.filter(b => b.busType === 'coach'))
 
-    // 获取巴士车型信息
     const getBusModel = (modelId) => {
       return store.getters.getBusModel(modelId)
     }
 
-    // 获取线路完整信息
+    const getBusCanOperate = (bus) => {
+      return store.getters.getBusCanOperate(bus)
+    }
+
     const getRoute = (routeId) => {
       if (!routeId) return null
       return store.getters.getRoute(routeId)
     }
 
-    // 获取线路名称
     const getRouteName = (routeId) => {
       if (!routeId) return '未分配线路'
       const route = getRoute(routeId)
       return route?.name || '未知线路'
     }
 
-    // 获取当前站点
     const getCurrentStop = (coach) => {
       if (!coach.routeId) return '-'
       const route = getRoute(coach.routeId)
@@ -175,7 +173,6 @@ export default {
       }
     }
 
-    // 获取巴士状态文本
     const getBusStatusText = (bus) => {
       const statusMap = {
         running: '运行中',
@@ -185,17 +182,14 @@ export default {
       return statusMap[bus.status] || '未知状态'
     }
 
-    // 巴士加油操作
     const refuelBus = (busId) => {
       store.dispatch('refuelBus', busId)
     }
 
-    // 巴士充电操作
     const chargeBus = (busId) => {
       store.dispatch('chargeBus', busId)
     }
 
-    // 巴士清洁操作
     const cleanBus = (busId) => {
       store.dispatch('cleanBus', busId)
     }
@@ -203,6 +197,7 @@ export default {
     return {
       coaches,
       getBusModel,
+      getBusCanOperate,
       getRouteName,
       getCurrentStop,
       getNextStop,

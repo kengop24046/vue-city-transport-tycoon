@@ -69,6 +69,29 @@
               <div class="bar-fill fuel" :style="{ width: `${plane.fuel}%` }"></div>
             </div>
             <span class="resource-value">{{ Math.floor(plane.fuel) }}%</span>
+            <button
+              v-if="getPlaneCanOperate(plane)"
+              class="action-btn-small refuel"
+              @click="refuelPlane(plane.id)"
+            >
+              加油
+            </button>
+            <span v-else-if="plane.needsRefuel" class="hint-text">需停靠机场</span>
+          </div>
+          <div class="resource-bar">
+            <span class="resource-label">🧹 清洁度</span>
+            <div class="bar-container">
+              <div class="bar-fill cleanliness" :style="{ width: `${plane.cleanliness || 100}%` }"></div>
+            </div>
+            <span class="resource-value">{{ Math.floor(plane.cleanliness || 100) }}%</span>
+            <button
+              v-if="getPlaneCanOperate(plane)"
+              class="action-btn-small clean"
+              @click="cleanPlane(plane.id)"
+            >
+              清洁
+            </button>
+            <span v-else-if="plane.needsCleaning" class="hint-text">需停靠机场</span>
           </div>
         </div>
 
@@ -84,14 +107,7 @@
 
       <div class="plane-actions">
         <button
-          v-if="plane.needsRefuel"
-          class="action-btn refuel"
-          @click="refuelPlane(plane.id)"
-        >
-          加油
-        </button>
-        <button
-          v-if="plane.needsSupplies"
+          v-if="getPlaneCanOperate(plane) && plane.needsSupplies"
           class="action-btn supply"
           @click="supplyPlane(plane.id)"
         >
@@ -117,6 +133,10 @@ export default {
 
     const getPlaneModel = (modelId) => {
       return store.getters.getPlaneModel(modelId)
+    }
+
+    const getPlaneCanOperate = (plane) => {
+      return store.getters.getPlaneCanOperate(plane)
     }
 
     const getRoute = (routeId) => {
@@ -158,6 +178,10 @@ export default {
       store.dispatch('refuelPlane', planeId)
     }
 
+    const cleanPlane = (planeId) => {
+      store.dispatch('cleanPlane', planeId)
+    }
+
     const supplyPlane = (planeId) => {
       store.dispatch('supplyPlane', planeId)
     }
@@ -166,11 +190,13 @@ export default {
       companyLevel,
       planes,
       getPlaneModel,
+      getPlaneCanOperate,
       getRouteName,
       getNextPoint,
       getPlaneStatusText,
       getPlaneStatusClass,
       refuelPlane,
+      cleanPlane,
       supplyPlane
     }
   }
@@ -331,12 +357,15 @@ export default {
   display: flex;
   align-items: center;
   gap: 10px;
+  flex-wrap: wrap;
+  justify-content: flex-start;
 }
 
 .resource-label {
   font-size: 12px;
   color: #666;
   width: 70px;
+  flex-shrink: 0;
 }
 
 .bar-container {
@@ -345,6 +374,7 @@ export default {
   background: #e0e0e0;
   border-radius: 4px;
   overflow: hidden;
+  min-width: 60px;
 }
 
 .bar-fill {
@@ -356,11 +386,50 @@ export default {
   background: linear-gradient(90deg, #ff9800, #ffc107);
 }
 
+.bar-fill.cleanliness {
+  background: linear-gradient(90deg, #00bcd4, #4dd0e1);
+}
+
 .resource-value {
   font-size: 12px;
   color: #333;
   width: 40px;
   text-align: right;
+  flex-shrink: 0;
+}
+
+.hint-text {
+  font-size: 11px;
+  color: #ff9800;
+  width: 80px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.action-btn-small {
+  padding: 6px 10px;
+  border: none;
+  border-radius: 6px;
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.action-btn-small.refuel {
+  background: linear-gradient(135deg, #ff9800, #ffc107);
+  color: white;
+}
+
+.action-btn-small.clean {
+  background: linear-gradient(135deg, #00bcd4, #4dd0e1);
+  color: white;
+}
+
+.action-btn-small:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
 }
 
 .plane-upgrades {

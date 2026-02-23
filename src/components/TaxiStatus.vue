@@ -53,13 +53,13 @@
             </div>
             <span class="resource-value">{{ Math.floor(taxi.battery || 0) }}%</span>
             <button
-              v-if="taxi.status === 'idle'"
+              v-if="getTaxiCanOperate(taxi)"
               class="action-btn charge"
               @click="chargeTaxi(taxi.id)"
             >
               充电
             </button>
-            <span v-else-if="taxi.needsCharge" class="hint-text">🔌 需空闲充电</span>
+            <span v-else-if="taxi.needsCharge" class="hint-text">🔌 电量不足</span>
           </div>
           <div class="resource-bar" v-else-if="taxi.powerType === 'fuel'">
             <span class="resource-label">⛽ 油量</span>
@@ -68,13 +68,13 @@
             </div>
             <span class="resource-value">{{ Math.floor(taxi.fuel || 0) }}%</span>
             <button
-              v-if="taxi.status === 'idle'"
+              v-if="getTaxiCanOperate(taxi)"
               class="action-btn refuel"
               @click="refuelTaxi(taxi.id)"
             >
               加油
             </button>
-            <span v-else-if="taxi.needsRefuel" class="hint-text">需空闲加油</span>
+            <span v-else-if="taxi.needsRefuel" class="hint-text">油量不足</span>
           </div>
           <div class="resource-bar">
             <span class="resource-label">🧹 清洁度</span>
@@ -83,13 +83,13 @@
             </div>
             <span class="resource-value">{{ Math.floor(taxi.cleanliness || 0) }}%</span>
             <button
-              v-if="taxi.status === 'idle'"
+              v-if="getTaxiCanOperate(taxi)"
               class="action-btn clean"
               @click="cleanTaxi(taxi.id)"
             >
               清洁
             </button>
-            <span v-else-if="taxi.needsCleaning" class="hint-text">需空闲清洁</span>
+            <span v-else-if="taxi.needsCleaning" class="hint-text">需要清洁</span>
           </div>
         </div>
       </div>
@@ -111,6 +111,10 @@ export default {
 
     const getTaxiModel = (modelId) => {
       return store.getters.getTaxiModel(modelId)
+    }
+
+    const getTaxiCanOperate = (taxi) => {
+      return store.getters.getTaxiCanOperate(taxi)
     }
 
     const getDriverName = (driverId) => {
@@ -148,6 +152,7 @@ export default {
     return {
       taxis,
       getTaxiModel,
+      getTaxiCanOperate,
       getDriverName,
       getTaxiStatusText,
       getTaxiStatusClass,

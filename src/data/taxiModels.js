@@ -7,8 +7,8 @@ export default [
     capacity: 4,
     price: 150000,
     speed: 130,
-    energyEfficiency: 12,
-    batteryCapacity: 200,
+    energyEfficiency: 13,
+    batteryCapacity: 53,
     description: '纯电动网约的士，运营成本低，城市通勤首选'
   },
   {
@@ -19,8 +19,8 @@ export default [
     capacity: 4,
     price: 120000,
     speed: 120,
-    energyEfficiency: 10,
-    fuelCapacity: 300,
+    energyEfficiency: 6,
+    fuelCapacity: 50,
     description: '燃油经济型的士，皮实耐用，维护成本低'
   },
   {
@@ -32,7 +32,7 @@ export default [
     price: 250000,
     speed: 160,
     energyEfficiency: 15,
-    batteryCapacity: 300,
+    batteryCapacity: 60,
     description: '高端纯电动的士，乘坐体验佳，溢价接单能力强'
   },
   {
@@ -43,8 +43,8 @@ export default [
     capacity: 4,
     price: 140000,
     speed: 130,
-    energyEfficiency: 11,
-    fuelCapacity: 350,
+    energyEfficiency: 6.5,
+    fuelCapacity: 55,
     description: '德系燃油的士，底盘稳定，适合长途跨城订单'
   },
   {
@@ -55,8 +55,8 @@ export default [
     capacity: 4,
     price: 300000,
     speed: 180,
-    energyEfficiency: 18,
-    batteryCapacity: 400,
+    energyEfficiency: 17,
+    batteryCapacity: 85,
     description: '豪华纯电动商务的士，高端订单专属，超高客单价'
   }
 ]

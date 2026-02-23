@@ -15,6 +15,25 @@ import metroModels from '../data/metroModels'
 import highSpeedRailModels from '../data/highSpeedRailModels'
 import cities from '../data/cities'
 
+const BUS_TERMINAL_WHITELIST = {
+  macau: ['关闸总站', '妈阁总站', '永宁广场总站', '外港码头总站', '氹仔花城总站', '旅游塔/行车隧道', '路环市区'],
+  hongkong: ['坚尼地城', '北角', '香港国际机场', '中环'],
+  zhuhai: ['香洲总站', '长隆'],
+  guangzhou: ['东山总站', '西关', '体育中心', '天河客运站'],
+  shenzhen: ['火车站', '市民中心'],
+  shanghai: ['延安西路外滩', '中山公园'],
+  beijing: ['四惠枢纽站', '公主坟']
+}
+const TAXI_TERMINAL_ROADS = {
+  macau: '关闸总站',
+  hongkong: '中环总站',
+  zhuhai: '香洲总站',
+  guangzhou: '东山总站',
+  shenzhen: '火车站',
+  shanghai: '延安西路外滩',
+  beijing: '四惠枢纽站'
+}
+
 const allRoutes = {
   macau: macauRoutes,
   hongkong: hongkongRoutes,
@@ -30,8 +49,8 @@ const getInitialState = () => ({
   companyName: '澳门交通集团',
   companyLevel: 1,
   experience: 0,
-  experienceToNextLevel: 15000,
-  money: 100000,
+  experienceToNextLevel: 150000,
+  money: 10000000,
   lastSaveTime: Date.now(),
   lastOnlineTime: Date.now(),
 
@@ -41,18 +60,18 @@ const getInitialState = () => ({
   // 员工
   employees: {
     busDrivers: [
-      { id: 1, name: '陈司机', salary: 3000, hired: true },
-      { id: 2, name: '李司机', salary: 3200, hired: true },
-      { id: 3, name: '黄司机', salary: 3200, hired: true },
+      { id: 1, name: '陈司机', salary: 6500, hired: true },
+      { id: 2, name: '李司机', salary: 6800, hired: true },
+      { id: 3, name: '黄司机', salary: 6800, hired: true },
     ],
     taxiDrivers: [
-      { id: 1, name: '王司机', salary: 3500, hired: true },
-      { id: 2, name: '张司机', salary: 3600, hired: true },
+      { id: 1, name: '王司机', salary: 5500, hired: true },
+      { id: 2, name: '张司机', salary: 5800, hired: true },
     ],
     pilots: [],
     flightAttendants: [],
     conductors: [
-      { id: 1, name: '周售票员', salary: 4000, hired: true }
+      { id: 1, name: '周售票员', salary: 4500, hired: true }
     ],
     maintenanceWorkers: [],
     cleaners: [],
@@ -63,8 +82,8 @@ const getInitialState = () => ({
     hsrAttendants: []
   },
 
+  // 初始车辆
   buses: [
-    // 初始城市巴士
     {
       id: 1,
       modelId: 'yu_tong_e10',
@@ -109,7 +128,6 @@ const getInitialState = () => ({
       stopCountdown: 0,
       isAtTerminal: false
     },
-    // 初始长途车
     {
       id: 3,
       modelId: 'yu_tong_zk6122h',
@@ -153,7 +171,8 @@ const getInitialState = () => ({
       cleanliness: 100,
       needsCharge: false,
       needsRefuel: false,
-      needsCleaning: false
+      needsCleaning: false,
+      isAtTerminal: false
     },
     {
       id: 2,
@@ -173,7 +192,8 @@ const getInitialState = () => ({
       cleanliness: 100,
       needsCharge: false,
       needsRefuel: false,
-      needsCleaning: false
+      needsCleaning: false,
+      isAtTerminal: false
     }
   ],
   planes: [],
@@ -289,6 +309,19 @@ export default createStore({
     getCityRoads: () => (cityId) => {
       const city = cities.find(c => c.id === cityId)
       return city?.roads || []
+    },
+
+    getBusCanOperate: () => (bus) => {
+      return bus && bus.isAtTerminal && bus.status === 'stopped'
+    },
+    getTaxiCanOperate: () => (taxi) => {
+      return !!taxi
+    },
+    getPlaneCanOperate: () => (plane) => {
+      return plane && plane.flightStage === 'docked'
+    },
+    getRailCanOperate: () => {
+      return false
     }
   },
 
@@ -401,6 +434,7 @@ export default createStore({
         totalMileage: 0,
         cleanliness: 100,
         needsCleaning: false,
+        isAtTerminal: false,
         ...taxi
       }
       const initData = model.powerType === 'electric'
@@ -410,7 +444,7 @@ export default createStore({
     },
 
     UPDATE_TAXI(state, { id, updates }) {
-      const taxi = state.taxis.find(t => t.id === id)
+      const taxi = state.taxis.find(t => t.id === taxiId)
       if (taxi) {
         Object.assign(taxi, updates)
       }
@@ -422,7 +456,9 @@ export default createStore({
         ...plane,
         id: state.planes.length + 1,
         flightStage: 'docked',
-        boardingProgress: 0
+        boardingProgress: 0,
+        cleanliness: 100,
+        needsCleaning: false
       })
     },
 
@@ -439,6 +475,12 @@ export default createStore({
         ...metro,
         id: state.metros.length + 1,
         status: 'idle',
+        currentStopIndex: 0,
+        progress: 0,
+        passengers: 0,
+        cleanliness: 100,
+        needsCleaning: false,
+        hasWiFi: false,
         stopCountdown: 0
       })
     },
@@ -456,6 +498,14 @@ export default createStore({
         ...hsr,
         id: state.highSpeedRails.length + 1,
         status: 'idle',
+        currentStopIndex: 0,
+        progress: 0,
+        passengers: 0,
+        cleanliness: 100,
+        needsCleaning: false,
+        needsSupplies: false,
+        hasEntertainment: false,
+        hasWiFi: false,
         stopCountdown: 0
       })
     },
@@ -674,13 +724,13 @@ export default createStore({
             const updates = updateVehicleProgress(metro, 'metro', getters)
             commit('UPDATE_METRO', { id: metro.id, updates })
 
-            if (updates.electricityCost) {
+            if (updates.arrived && updates.electricityCost && updates.electricityCost > 0) {
               commit('ADD_MONEY', -updates.electricityCost)
               commit('ADD_FINANCIAL_RECORD', {
                 type: 'expense',
                 category: 'electricity',
                 amount: updates.electricityCost,
-                description: `地铁运营电费`
+                description: `地铁运营电费 - ${getters.getMetroModel(metro.modelId).name}`
               })
             }
 
@@ -704,13 +754,13 @@ export default createStore({
             const updates = updateVehicleProgress(hsr, 'hsr', getters)
             commit('UPDATE_HIGH_SPEED_RAIL', { id: hsr.id, updates })
 
-            if (updates.electricityCost) {
+            if (updates.arrived && updates.electricityCost && updates.electricityCost > 0) {
               commit('ADD_MONEY', -updates.electricityCost)
               commit('ADD_FINANCIAL_RECORD', {
                 type: 'expense',
                 category: 'electricity',
                 amount: updates.electricityCost,
-                description: '高铁运营电费'
+                description: `高铁运营电费 - ${getters.getHSRModel(hsr.modelId).name}`
               })
             }
 
@@ -786,7 +836,6 @@ export default createStore({
       dispatch('checkLevelUp')
     },
 
-    // 燃油巴士加油
     refuelBus({ state, commit, getters }, busId) {
       const bus = state.buses.find(b => b.id === busId)
       if (bus && bus.powerType === 'fuel' && bus.isAtTerminal && bus.status === 'stopped') {
@@ -801,16 +850,17 @@ export default createStore({
             amount: cost,
             description: `巴士加油 - ${model.name}`
           })
+          return true
         }
       }
+      return false
     },
 
-    // 电动巴士充电
     chargeBus({ state, commit, getters }, busId) {
       const bus = state.buses.find(b => b.id === busId)
       if (bus && bus.powerType === 'electric' && bus.isAtTerminal && bus.status === 'stopped') {
         const model = getters.getBusModel(bus.modelId)
-        const cost = (100 - bus.battery) * 1
+        const cost = (100 - bus.battery) * 1.2
         if (state.money >= cost) {
           commit('ADD_MONEY', -cost)
           commit('UPDATE_BUS', { id: busId, updates: { battery: 100, needsCharge: false } })
@@ -820,11 +870,12 @@ export default createStore({
             amount: cost,
             description: `巴士充电 - ${model.name}`
           })
+          return true
         }
       }
+      return false
     },
 
-    // 巴士清洁
     cleanBus({ state, commit, getters }, busId) {
       const bus = state.buses.find(b => b.id === busId)
       if (bus && bus.isAtTerminal && bus.status === 'stopped') {
@@ -839,16 +890,17 @@ export default createStore({
             amount: cost,
             description: `巴士清洁 - ${model.name}`
           })
+          return true
         }
       }
+      return false
     },
 
-    // 的士加油
     refuelTaxi({ state, commit, getters }, taxiId) {
       const taxi = state.taxis.find(t => t.id === taxiId)
-      if (taxi && taxi.powerType === 'fuel' && taxi.status === 'idle') {
+      if (taxi && taxi.powerType === 'fuel') {
         const model = getters.getTaxiModel(taxi.modelId)
-        const cost = (100 - taxi.fuel) * 2
+        const cost = (100 - taxi.fuel) * 2.5
         if (state.money >= cost) {
           commit('ADD_MONEY', -cost)
           commit('UPDATE_TAXI', { id: taxiId, updates: { fuel: 100, needsRefuel: false } })
@@ -858,16 +910,17 @@ export default createStore({
             amount: cost,
             description: `的士加油 - ${model.name}`
           })
+          return true
         }
       }
+      return false
     },
 
-    // 的士充电
     chargeTaxi({ state, commit, getters }, taxiId) {
       const taxi = state.taxis.find(t => t.id === taxiId)
-      if (taxi && taxi.powerType === 'electric' && taxi.status === 'idle') {
+      if (taxi && taxi.powerType === 'electric') {
         const model = getters.getTaxiModel(taxi.modelId)
-        const cost = (100 - taxi.battery) * 0.8
+        const cost = (100 - taxi.battery) * 1
         if (state.money >= cost) {
           commit('ADD_MONEY', -cost)
           commit('UPDATE_TAXI', { id: taxiId, updates: { battery: 100, needsCharge: false } })
@@ -877,14 +930,15 @@ export default createStore({
             amount: cost,
             description: `的士充电 - ${model.name}`
           })
+          return true
         }
       }
+      return false
     },
 
-    // 的士清洁
     cleanTaxi({ state, commit, getters }, taxiId) {
       const taxi = state.taxis.find(t => t.id === taxiId)
-      if (taxi && taxi.status === 'idle') {
+      if (taxi) {
         const model = getters.getTaxiModel(taxi.modelId)
         const cost = 50
         if (state.money >= cost) {
@@ -896,16 +950,18 @@ export default createStore({
             amount: cost,
             description: `的士清洁 - ${model.name}`
           })
+          return true
         }
       }
+      return false
     },
 
     refuelPlane({ state, commit, getters }, planeId) {
       if (state.companyLevel < 6) return false
       const plane = state.planes.find(p => p.id === planeId)
-      if (plane) {
+      if (plane && plane.flightStage === 'docked') {
         const model = getters.getPlaneModel(plane.modelId)
-        const cost = (100 - plane.fuel) * 15
+        const cost = (100 - plane.fuel) * 20
         if (state.money >= cost) {
           commit('ADD_MONEY', -cost)
           commit('UPDATE_PLANE', { id: planeId, updates: { fuel: 100, needsRefuel: false } })
@@ -915,16 +971,39 @@ export default createStore({
             amount: cost,
             description: `飞机加油 - ${model.name}`
           })
+          return true
         }
       }
+      return false
+    },
+
+    cleanPlane({ state, commit, getters }, planeId) {
+      if (state.companyLevel < 6) return false
+      const plane = state.planes.find(p => p.id === planeId)
+      if (plane && plane.flightStage === 'docked') {
+        const model = getters.getPlaneModel(plane.modelId)
+        const cost = 800
+        if (state.money >= cost) {
+          commit('ADD_MONEY', -cost)
+          commit('UPDATE_PLANE', { id: planeId, updates: { cleanliness: 100, needsCleaning: false } })
+          commit('ADD_FINANCIAL_RECORD', {
+            type: 'expense',
+            category: 'cleaning',
+            amount: cost,
+            description: `飞机清洁 - ${model.name}`
+          })
+          return true
+        }
+      }
+      return false
     },
 
     supplyPlane({ state, commit, getters }, planeId) {
       if (state.companyLevel < 6) return false
       const plane = state.planes.find(p => p.id === planeId)
-      if (plane) {
+      if (plane && plane.flightStage === 'docked') {
         const model = getters.getPlaneModel(plane.modelId)
-        const cost = 800
+        const cost = 1200
         if (state.money >= cost) {
           commit('ADD_MONEY', -cost)
           commit('UPDATE_PLANE', { id: planeId, updates: { needsSupplies: false } })
@@ -934,8 +1013,10 @@ export default createStore({
             amount: cost,
             description: `飞机补给 - ${model.name}`
           })
+          return true
         }
       }
+      return false
     },
 
     buyBus({ state, commit, getters }, modelId) {
@@ -954,7 +1035,6 @@ export default createStore({
       return false
     },
 
-    // 购买的士
     buyTaxi({ state, commit, getters }, modelId) {
       const model = getters.getTaxiModel(modelId)
       if (model && state.money >= model.price) {
@@ -1058,18 +1138,18 @@ export default createStore({
 
     hireEmployee({ state, commit }, { type, name, salary }) {
       const costs = {
-        busDrivers: 5000,
+        busDrivers: 8000,
         taxiDrivers: 6000,
-        pilots: 30000,
-        flightAttendants: 15000,
-        conductors: 8000,
-        maintenanceWorkers: 6000,
-        cleaners: 4000,
-        supplyWorkers: 5000,
-        bikeRepairers: 4500,
-        metroDrivers: 7000,
-        hsrDrivers: 12000,
-        hsrAttendants: 9000
+        pilots: 50000,
+        flightAttendants: 20000,
+        conductors: 10000,
+        maintenanceWorkers: 8000,
+        cleaners: 5000,
+        supplyWorkers: 6000,
+        bikeRepairers: 5000,
+        metroDrivers: 12000,
+        hsrDrivers: 20000,
+        hsrAttendants: 15000
       }
 
       const hiringCost = costs[type] || 5000
