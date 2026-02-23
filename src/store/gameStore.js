@@ -31,7 +31,7 @@ const getInitialState = () => ({
   companyLevel: 1,
   experience: 0,
   experienceToNextLevel: 15000,
-  money: 10000,
+  money: 100000,
   lastSaveTime: Date.now(),
   lastOnlineTime: Date.now(),
 
@@ -43,6 +43,7 @@ const getInitialState = () => ({
     busDrivers: [
       { id: 1, name: '陈司机', salary: 3000, hired: true },
       { id: 2, name: '李司机', salary: 3200, hired: true },
+      { id: 3, name: '黄司机', salary: 3200, hired: true },
     ],
     taxiDrivers: [
       { id: 1, name: '王司机', salary: 3500, hired: true },
@@ -86,9 +87,31 @@ const getInitialState = () => ({
       stopCountdown: 0,
       isAtTerminal: false
     },
-    // 初始长途车
     {
       id: 2,
+      modelId: 'yu_tong_e10',
+      busType: 'city',
+      powerType: 'electric',
+      routeId: 'macau_1A',
+      status: 'running',
+      currentStopIndex: 0,
+      progress: 0,
+      passengers: 0,
+      battery: 100,
+      fuel: 0,
+      cleanliness: 100,
+      needsCharge: false,
+      needsRefuel: false,
+      needsCleaning: false,
+      hasEntertainment: false,
+      hasWiFi: false,
+      direction: 'outbound',
+      stopCountdown: 0,
+      isAtTerminal: false
+    },
+    // 初始长途车
+    {
+      id: 3,
       modelId: 'yu_tong_zk6122h',
       busType: 'coach',
       powerType: 'fuel',
@@ -165,7 +188,7 @@ const getInitialState = () => ({
   },
 
   activeRoutes: {
-    bus: ['macau_1'],
+    bus: ['macau_1', 'macau_1A'],
     coach: ['macau_zhuhai_coach'],
     plane: [],
     metro: [],
