@@ -57,17 +57,15 @@ export function calculateOfflineEarnings(state, offlineTime) {
   let total = 0;
   let breakdown = {};
 
-  const busIncome = state.buses
-    .filter(b => b.status === 'running' && b.routeId && b.busType === 'city')
-    .length * 300 * hours;
+  const runningBusCount = state.buses.filter(b => b.status === 'running' && b.routeId && b.busType === 'city').length
+  const busIncome = runningBusCount * 300 * hours;
   if (busIncome > 0) {
     breakdown.bus = busIncome;
     total += busIncome;
   }
 
-  const coachIncome = state.buses
-    .filter(b => b.status === 'running' && b.routeId && b.busType === 'coach')
-    .length * 1200 * hours;
+  const runningCoachCount = state.buses.filter(b => b.status === 'running' && b.routeId && b.busType === 'coach').length
+  const coachIncome = runningCoachCount * 1200 * hours;
   if (coachIncome > 0) {
     breakdown.coach = coachIncome;
     total += coachIncome;
@@ -90,12 +88,9 @@ export function calculateOfflineEarnings(state, offlineTime) {
   }
 
   if (state.companyLevel >= 10) {
-    const metroIncome = state.metros
-      .filter(m => m.status === 'running' && m.routeId)
-      .length * 8000 * hours;
-    const metroElectricityCost = state.metros
-      .filter(m => m.status === 'running' && m.routeId)
-      .length * 1200 * hours;
+    const runningMetroCount = state.metros.filter(m => m.status === 'running' && m.routeId).length
+    const metroIncome = runningMetroCount * 8000 * hours;
+    const metroElectricityCost = runningMetroCount * 1200 * hours;
     if (metroIncome > 0) {
       breakdown.metro = metroIncome - metroElectricityCost;
       total += (metroIncome - metroElectricityCost);
@@ -103,12 +98,9 @@ export function calculateOfflineEarnings(state, offlineTime) {
   }
 
   if (state.companyLevel >= 20) {
-    const hsrIncome = state.highSpeedRails
-      .filter(h => h.status === 'running' && h.routeId)
-      .length * 30000 * hours;
-    const hsrElectricityCost = state.highSpeedRails
-      .filter(h => h.status === 'running' && h.routeId)
-      .length * 8000 * hours;
+    const runningHsrCount = state.highSpeedRails.filter(h => h.status === 'running' && h.routeId).length
+    const hsrIncome = runningHsrCount * 30000 * hours;
+    const hsrElectricityCost = runningHsrCount * 8000 * hours;
     if (hsrIncome > 0) {
       breakdown.hsr = hsrIncome - hsrElectricityCost;
       total += (hsrIncome - hsrElectricityCost);
@@ -152,7 +144,7 @@ export function updateTaxiProgress(taxi, getters) {
   }
 
   if (taxi.status === 'idle' && !taxi.needsCharge && !taxi.needsRefuel && !taxi.needsCleaning) {
-    if (Math.random() < 0.3) {
+    if (Math.random() < 0.5) {
       const passengerCount = Math.floor(Math.random() * 4) + 1;
       const startRoad = taxi.currentRoad || cityRoads[Math.floor(Math.random() * cityRoads.length)];
       let targetRoad = cityRoads[Math.floor(Math.random() * cityRoads.length)];
@@ -293,8 +285,8 @@ export function updateVehicleProgress(vehicle, type, getters) {
     const currentStopName = currentStops[currentStopIndex] || '';
 
     const isTerminal = BUS_TERMINAL_WHITELIST[route.city]?.includes(currentStopName) || 
-                       currentStopIndex === 0 || 
-                       currentStopIndex === currentStops.length - 1;
+      currentStopIndex === 0 || 
+      currentStopIndex === currentStops.length - 1;
 
     if (vehicle.status === 'stopped') {
       updates.stopCountdown = Math.max(0, (vehicle.stopCountdown || 0) - 1);
@@ -316,10 +308,9 @@ export function updateVehicleProgress(vehicle, type, getters) {
           const reverseFirstStopName = reverseStops[0] || '';
           updates.isAtTerminal = BUS_TERMINAL_WHITELIST[route.city]?.includes(reverseFirstStopName) || true;
         }
-
         updates.currentStopIndex = nextStopIndex;
-        return updates;
       }
+      return updates;
     }
 
     if (vehicle.status === 'running' && vehicle.routeId) {
@@ -379,14 +370,14 @@ export function updateVehicleProgress(vehicle, type, getters) {
 
     if (isStopped) {
       updates.stopCountdown = Math.max(0, (vehicle.stopCountdown || 0) - 1);
+      const alightPassengers = Math.floor(vehicle.passengers * (0.3 + Math.random() * 0.5));
+      updates.passengers = Math.max(0, vehicle.passengers - alightPassengers);
+      
       if (updates.stopCountdown <= 0) {
         updates.status = 'running';
         updates.progress = 0;
         return updates;
       }
-
-      const alightPassengers = Math.floor(vehicle.passengers * (0.3 + Math.random() * 0.5));
-      updates.passengers = Math.max(0, vehicle.passengers - alightPassengers);
     }
 
     if (vehicle.status === 'running' && vehicle.routeId) {
@@ -415,7 +406,7 @@ export function updateVehicleProgress(vehicle, type, getters) {
         updates.status = 'stopped';
         updates.arrived = true;
         updates.electricityCost = energyConsumption[type].electric;
-        
+
         if (type === 'hsr') {
           const { min, max } = STOP_DURATION.hsr;
           updates.stopCountdown = Math.floor(Math.random() * (max - min + 1)) + min;

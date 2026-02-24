@@ -1,6 +1,6 @@
 <template>
   <div class="bus-status">
-    <h2>🚌 城市巴士运行状况</h2>
+    <h2>🚌 车辆运行状况</h2>
     <div v-if="buses.length === 0" class="empty-state">
       <p>暂无城市巴士,快去商店购买吧!</p>
     </div>
@@ -17,6 +17,14 @@
           <div class="info-row">
             <span class="info-label">🗺️ 线路</span>
             <span class="info-value">{{ getRouteName(bus.routeId) }}</span>
+          </div>
+          <div class="info-row" v-if="bus.driverId">
+            <span class="info-label">👨‍✈️ 司机</span>
+            <span class="info-value">{{ getDriverName(bus.driverId) }}</span>
+          </div>
+          <div class="info-row" v-if="bus.conductorId">
+            <span class="info-label">💁 售票员</span>
+            <span class="info-value">{{ getConductorName(bus.conductorId) }}</span>
           </div>
           <div class="info-row" v-if="bus.status === 'stopped'">
             <span class="info-label">📍 已到站</span>
@@ -42,7 +50,7 @@
               {{ bus.passengers }} / {{ getBusModel(bus.modelId)?.capacity || 0 }}
             </span>
           </div>
-          <div class="progress-section">
+          <div class="progress-section" v-if="bus.routeId">
             <div class="progress-label">
               <span>📈 到下一站进度</span>
               <span>{{ Math.floor(bus.progress || 0) }}%</span>
@@ -103,6 +111,45 @@
           </div>
         </div>
 
+        <div class="route-operation">
+          <div v-if="!bus.routeId" class="assign-section">
+            <div class="assign-form">
+              <select v-model="assignForm[bus.id].routeId" class="select-input full-width">
+                <option value="">选择要分配的线路</option>
+                <option
+                  v-for="route in getAvailableRoutes(bus.busType)"
+                  :key="route.id"
+                  :value="route.id"
+                >
+                  {{ route.name }}
+                </option>
+              </select>
+              <select v-model="assignForm[bus.id].driverId" class="select-input">
+                <option value="">选择司机</option>
+                <option
+                  v-for="driver in availableDrivers"
+                  :key="driver.id"
+                  :value="driver.id"
+                >
+                  {{ driver.name }}
+                </option>
+              </select>
+              <button
+                class="assign-btn"
+                :disabled="!canAssignBus(bus.id)"
+                @click="assignBusRoute(bus.id)"
+              >
+                分配线路
+              </button>
+            </div>
+          </div>
+          <div v-else class="remove-section">
+            <button class="remove-btn" @click="removeBusRoute(bus.id)">
+              移除线路
+            </button>
+          </div>
+        </div>
+
         <div class="bus-upgrades">
           <span class="upgrade-tag disabled">娱乐系统</span>
           <span class="upgrade-tag disabled">WiFi</span>
@@ -113,15 +160,31 @@
 </template>
 
 <script>
-import { computed } from 'vue'
+import { computed, reactive, watch } from 'vue'
 import { useStore } from 'vuex'
 
 export default {
   name: 'BusStatus',
   setup() {
     const store = useStore()
+    const assignForm = reactive({})
+    const buses = computed(() => store.state.buses.filter(bus => bus.busType === 'city'))
+    const activeRoutes = computed(() => store.state.activeRoutes)
+    const employees = computed(() => store.state.employees)
 
-    const buses = computed(() => store.state.buses.filter(b => b.busType === 'city'))
+    const availableDrivers = computed(() => {
+      return store.getters.availableBusDrivers
+    })
+
+    const availableConductors = computed(() => {
+      return store.getters.availableConductors
+    })
+
+    const getAvailableRoutes = (busType) => {
+      const routeType = busType === 'city' ? 'bus' : 'coach'
+      const routeIds = activeRoutes.value[routeType] || []
+      return routeIds.map(id => store.getters.getRoute(id)).filter(Boolean)
+    }
 
     const getBusModel = (modelId) => {
       return store.getters.getBusModel(modelId)
@@ -142,6 +205,16 @@ export default {
       return route?.name || '未知线路'
     }
 
+    const getDriverName = (driverId) => {
+      const driver = employees.value.busDrivers.find(d => d.id === driverId)
+      return driver?.name || '未知司机'
+    }
+
+    const getConductorName = (conductorId) => {
+      const conductor = employees.value.conductors.find(c => c.id === conductorId)
+      return conductor?.name || '未知售票员'
+    }
+
     const getCurrentStop = (bus) => {
       if (!bus.routeId) return '-'
       const route = getRoute(bus.routeId)
@@ -154,7 +227,6 @@ export default {
       if (!bus.routeId) return '-'
       const route = getRoute(bus.routeId)
       if (!route) return '-'
-      
       const currentStops = bus.direction === 'outbound' ? route.stops.outbound : route.stops.inbound
       const currentIndex = bus.currentStopIndex
 
@@ -196,8 +268,47 @@ export default {
       store.dispatch('cleanBus', busId)
     }
 
+    const canAssignBus = (busId) => {
+      const form = assignForm[busId]
+      return !!form?.routeId && !!form?.driverId
+    }
+
+    const assignBusRoute = (busId) => {
+      const form = assignForm[busId]
+      store.dispatch('assignBusRoute', {
+        busId,
+        routeId: form.routeId,
+        driverId: form.driverId,
+        conductorId: null
+      }).then(success => {
+        if (success) {
+          assignForm[busId] = {
+            routeId: '',
+            driverId: ''
+          }
+        }
+      })
+    }
+
+    const removeBusRoute = (busId) => {
+      store.dispatch('removeBusRoute', busId)
+    }
+
+    watch(buses, (newBuses) => {
+      newBuses.forEach(bus => {
+        if (!assignForm[bus.id]) {
+          assignForm[bus.id] = {
+            routeId: '',
+            driverId: ''
+          }
+        }
+      })
+    }, { immediate: true })
+
     return {
       buses,
+      availableDrivers,
+      availableConductors,
       getBusModel,
       getBusCanOperate,
       getRouteName,
@@ -206,7 +317,14 @@ export default {
       getBusStatusText,
       refuelBus,
       chargeBus,
-      cleanBus
+      cleanBus,
+      getAvailableRoutes,
+      getDriverName,
+      getConductorName,
+      assignForm,
+      canAssignBus,
+      assignBusRoute,
+      removeBusRoute
     }
   }
 }
@@ -228,7 +346,7 @@ export default {
 
 .bus-list {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
   gap: 20px;
 }
 
@@ -458,6 +576,76 @@ export default {
   box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
 }
 
+.route-operation {
+  margin: 15px 0;
+  padding: 12px;
+  background: white;
+  border-radius: 10px;
+}
+
+.assign-form {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.select-input {
+  padding: 8px 10px;
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
+  font-size: 12px;
+  min-width: 100px;
+}
+
+.select-input.full-width {
+  flex: 1;
+  min-width: 150px;
+}
+
+.assign-btn {
+  padding: 8px 16px;
+  border: none;
+  border-radius: 6px;
+  background: linear-gradient(135deg, #4caf50 0%, #66bb6a 100%);
+  color: white;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.assign-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 10px rgba(76, 175, 80, 0.3);
+}
+
+.assign-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.remove-section {
+  display: flex;
+  justify-content: center;
+}
+
+.remove-btn {
+  padding: 8px 20px;
+  border: none;
+  border-radius: 6px;
+  background: linear-gradient(135deg, #f5576c 0%, #e53e52 100%);
+  color: white;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  width: 100%;
+}
+
+.remove-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 10px rgba(245, 87, 108, 0.3);
+}
+
 .bus-upgrades {
   display: flex;
   gap: 10px;
@@ -495,6 +683,16 @@ export default {
   .action-btn {
     padding: 6px 8px;
     font-size: 11px;
+  }
+  .assign-form {
+    flex-direction: column;
+    width: 100%;
+  }
+  .select-input {
+    width: 100%;
+  }
+  .assign-btn {
+    width: 100%;
   }
 }
 </style>

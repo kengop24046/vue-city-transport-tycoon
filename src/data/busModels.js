@@ -1,5 +1,5 @@
 export default [
-  // 、城市公交巴士-燃油车型
+  // 城市公交巴士-燃油车型
   {
     id: 'yu_tong_zk6125',
     name: '宇通 ZK6125 🚌',
@@ -11,7 +11,7 @@ export default [
     speed: 69,
     energyEfficiency: 22,
     fuelCapacity: 300,
-    description: '12米级主流城市燃油公交，皮实耐用，城市通勤主力车型'
+    description: '12米级主流城市燃油公交,皮实耐用,城市通勤主力车型'
   },
   {
     id: 'king_long_xmq6115',
@@ -24,7 +24,7 @@ export default [
     speed: 65,
     energyEfficiency: 20,
     fuelCapacity: 260,
-    description: '11米经济型城市燃油公交，中小线路高性价比之选'
+    description: '11米经济型城市燃油公交,中小线路高性价比之选'
   },
   {
     id: 'zhong_tong_lck6120',
@@ -37,7 +37,7 @@ export default [
     speed: 70,
     energyEfficiency: 23,
     fuelCapacity: 320,
-    description: '12米豪华城市燃油公交，大容量BRT干线专用车型'
+    description: '12米豪华城市燃油公交,大容量BRT干线专用车型'
   },
 
   // 城市公交巴士-纯电动车型
@@ -52,7 +52,7 @@ export default [
     speed: 69,
     energyEfficiency: 85,
     batteryCapacity: 340,
-    description: '10米级纯电动城市公交，国内市占率最高，初始运营主力车型'
+    description: '10米级纯电动城市公交,国内市占率最高,初始运营主力车型'
   },
   {
     id: 'yu_tong_e12',
@@ -65,7 +65,7 @@ export default [
     speed: 70,
     energyEfficiency: 95,
     batteryCapacity: 422,
-    description: '12米级纯电动公交，干线主力大容量车型'
+    description: '12米级纯电动公交,干线主力大容量车型'
   },
   {
     id: 'byd_k9',
@@ -78,7 +78,7 @@ export default [
     speed: 69,
     energyEfficiency: 90,
     batteryCapacity: 380,
-    description: '比亚迪旗舰纯电动公交，刀片电池技术，超长使用寿命'
+    description: '比亚迪旗舰纯电动公交,刀片电池技术,超长使用寿命'
   },
   {
     id: 'golden_dragon_xml6122',
@@ -91,7 +91,7 @@ export default [
     speed: 80,
     energyEfficiency: 100,
     batteryCapacity: 500,
-    description: '12米大容量BRT纯电动公交，城市快速公交专用'
+    description: '12米大容量BRT纯电动公交,城市快速公交专用'
   },
   {
     id: 'higer_klq6125',
@@ -104,7 +104,7 @@ export default [
     speed: 69,
     energyEfficiency: 88,
     batteryCapacity: 360,
-    description: '智慧网联纯电动公交，支持智能调度辅助驾驶'
+    description: '智慧网联纯电动公交,支持智能调度辅助驾驶'
   },
 
   // 跨市长途客运巴士
@@ -119,7 +119,7 @@ export default [
     speed: 100,
     energyEfficiency: 26,
     fuelCapacity: 600,
-    description: '12米豪华跨市客运大巴，航空级座椅，中长途干线主力车型'
+    description: '12米豪华跨市客运大巴,航空级座椅,中长途干线主力车型'
   },
   {
     id: 'king_long_xmq6129',
@@ -132,7 +132,7 @@ export default [
     speed: 110,
     energyEfficiency: 28,
     fuelCapacity: 800,
-    description: '12米高端商务长途客车，卧铺级舒适体验，省际干线旗舰车型'
+    description: '12米高端商务长途客车,卧铺级舒适体验,省际干线旗舰车型'
   },
   {
     id: 'zhong_tong_lck6130',
@@ -145,6 +145,6 @@ export default [
     speed: 95,
     energyEfficiency: 24,
     fuelCapacity: 500,
-    description: '经济型短途客运客车，短途跨市首选，高燃油经济性'
+    description: '经济型短途客运客车,短途跨市首选,高燃油经济性'
   }
 ]
