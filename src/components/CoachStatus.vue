@@ -1,176 +1,178 @@
 <template>
-  <div class="coach-status">
-    <h3>🚌 长途巴士运行状况</h3>
-    <div v-if="coaches.length === 0" class="empty-state">
-      <p>🅿️ 暂无长途巴士,快去商店购买吧!</p>
-    </div>
-    <div v-else class="coach-list">
-      <div v-for="coach in coaches" :key="coach.id" class="coach-card">
-        <div class="coach-header">
-          <h3>{{ getBusModel(coach.modelId)?.name || '未知车型' }}</h3>
-          <span class="status-badge" :class="coach.status">
-            {{ getBusStatusText(coach) }}
+<div class="coach-status">
+  <h3> 长途巴士运行状况</h3>
+  <div v-if="coaches.length === 0" class="empty-state">
+    <p>🅿️ 暂无长途巴士,快去商店购买吧!</p>
+  </div>
+  <div v-else class="coach-list">
+    <div v-for="coach in coaches" :key="coach.id" class="coach-card">
+      <div class="coach-header">
+        <h3>{{ getBusModel(coach.modelId)?.name || '未知车型' }}</h3>
+        <span class="status-badge" :class="coach.status">
+          {{ getBusStatusText(coach) }}
+        </span>
+      </div>
+
+      <div class="coach-info">
+        <div class="info-row">
+          <span class="info-label">🗺️ 线路</span>
+          <span class="info-value">{{ getRouteName(coach.routeId) }}</span>
+        </div>
+        <div class="info-row" v-if="coach.driverId">
+          <span class="info-label">👨‍✈️ 司机</span>
+          <span class="info-value">{{ getDriverName(coach.driverId) }}</span>
+        </div>
+        <div class="info-row" v-if="coach.conductorId">
+          <span class="info-label">💁 售票员</span>
+          <span class="info-value">{{ getConductorName(coach.conductorId) }}</span>
+        </div>
+        <div class="info-row" v-if="coach.status === 'stopped'">
+          <span class="info-label">📍 已到站</span>
+          <span class="info-value arrived">
+            {{ getCurrentStop(coach) }}
+            <span v-if="coach.isAtTerminal" class="terminal-tag">🏁 总站</span>
           </span>
         </div>
-
-        <div class="coach-info">
-          <div class="info-row">
-            <span class="info-label">🗺️ 线路</span>
-            <span class="info-value">{{ getRouteName(coach.routeId) }}</span>
+        <div class="info-row" v-if="coach.routeId">
+          <span class="info-label">🏁 下一站</span>
+          <span class="info-value">{{ getNextStop(coach) }}</span>
+        </div>
+        <div class="info-row" v-if="coach.status === 'stopped'">
+          <span class="info-label">⏱️ 发车倒计时</span>
+          <span class="info-value countdown" :class="{terminal: coach.isAtTerminal}">
+            {{ coach.stopCountdown }} 秒
+            <span v-if="coach.isAtTerminal" class="terminal-hint">(总站停靠)</span>
+          </span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">👥 乘客</span>
+          <span class="info-value">
+            {{ coach.passengers }} / {{ getBusModel(coach.modelId)?.capacity || 0 }}
+          </span>
+        </div>
+        <div class="progress-section" v-if="coach.routeId">
+          <div class="progress-label">
+            <span>📈 到下一站进度</span>
+            <span>{{ Math.floor(coach.progress || 0) }}%</span>
           </div>
-          <div class="info-row" v-if="coach.driverId">
-            <span class="info-label">👨‍✈️ 司机</span>
-            <span class="info-value">{{ getDriverName(coach.driverId) }}</span>
-          </div>
-          <div class="info-row" v-if="coach.conductorId">
-            <span class="info-label">💁 售票员</span>
-            <span class="info-value">{{ getConductorName(coach.conductorId) }}</span>
-          </div>
-          <div class="info-row" v-if="coach.status === 'stopped'">
-            <span class="info-label">📍 已到站</span>
-            <span class="info-value arrived">
-              {{ getCurrentStop(coach) }}
-              <span v-if="coach.isAtTerminal" class="terminal-tag">🏁 总站</span>
-            </span>
-          </div>
-          <div class="info-row" v-if="coach.routeId">
-            <span class="info-label">🏁 下一站</span>
-            <span class="info-value">{{ getNextStop(coach) }}</span>
-          </div>
-          <div class="info-row" v-if="coach.status === 'stopped'">
-            <span class="info-label">⏱️ 发车倒计时</span>
-            <span class="info-value countdown" :class="{terminal: coach.isAtTerminal}">
-              {{ coach.stopCountdown }} 秒
-              <span v-if="coach.isAtTerminal" class="terminal-hint">(总站停靠)</span>
-            </span>
-          </div>
-          <div class="info-row">
-            <span class="info-label">👥 乘客</span>
-            <span class="info-value">
-              {{ coach.passengers }} / {{ getBusModel(coach.modelId)?.capacity || 0 }}
-            </span>
-          </div>
-          <div class="progress-section" v-if="coach.routeId">
-            <div class="progress-label">
-              <span>📈 到下一站进度</span>
-              <span>{{ Math.floor(coach.progress || 0) }}%</span>
-            </div>
-            <div class="progress-bar">
-              <div class="progress-fill" :style="{ width: `${coach.progress || 0}%` }"></div>
+          <div class="progress-bar">
+            <div class="progress-fill" :style="{ width: `${coach.progress || 0}%` }">
             </div>
           </div>
         </div>
+      </div>
 
-        <div class="resource-bars">
-          <div class="resource-bar" v-if="coach.powerType === 'electric'">
-            <span class="resource-label">🔋 电量</span>
-            <div class="bar-container">
-              <div class="bar-fill battery" :style="{ width: `${coach.battery || 0}%` }"></div>
+      <div class="resource-bars">
+        <div class="resource-bar" v-if="coach.powerType === 'electric'">
+          <span class="resource-label">🔋 电量</span>
+          <div class="bar-container">
+            <div class="bar-fill battery" :style="{ width: `${coach.battery || 0}%` }">
             </div>
-            <span class="resource-value">{{ Math.floor(coach.battery || 0) }}%</span>
-            <button
-              v-if="getBusCanOperate(coach)"
-              class="action-btn charge"
-              @click="chargeBus(coach.id)"
-            >
-              充电
-            </button>
-            <span v-else-if="coach.needsCharge" class="hint-text">🔌 需到总站充电</span>
           </div>
-
-          <div class="resource-bar" v-else-if="coach.powerType === 'fuel'">
-            <span class="resource-label">⛽ 油量</span>
-            <div class="bar-container">
-              <div class="bar-fill fuel" :style="{ width: `${coach.fuel || 0}%` }"></div>
-            </div>
-            <span class="resource-value">{{ Math.floor(coach.fuel || 0) }}%</span>
-            <button
-              v-if="getBusCanOperate(coach)"
-              class="action-btn refuel"
-              @click="refuelBus(coach.id)"
-            >
-              加油
-            </button>
-            <span v-else-if="coach.needsRefuel" class="hint-text">需到总站加油</span>
-          </div>
-
-          <div class="resource-bar">
-            <span class="resource-label">🧹 清洁度</span>
-            <div class="bar-container">
-              <div class="bar-fill cleanliness" :style="{ width: `${coach.cleanliness || 0}%` }"></div>
-            </div>
-            <span class="resource-value">{{ Math.floor(coach.cleanliness || 0) }}%</span>
-            <button
-              v-if="getBusCanOperate(coach)"
-              class="action-btn clean"
-              @click="cleanBus(coach.id)"
-            >
-              清洁
-            </button>
-            <span v-else-if="coach.needsCleaning" class="hint-text">需到总站清洁</span>
-          </div>
+          <span class="resource-value">{{ Math.floor(coach.battery || 0) }}%</span>
+          <button
+            v-if="getBusCanOperate(coach)"
+            class="action-btn charge"
+            @click="chargeBus(coach.id)"
+          >
+            充电
+          </button>
+          <span v-else-if="coach.needsCharge" class="hint-text"> 需到总站充电</span>
         </div>
 
-        <div class="route-operation">
-          <div v-if="!coach.routeId" class="assign-section">
-            <div class="assign-form">
-              <select v-model="assignForm[coach.id].routeId" class="select-input full-width">
-                <option value="">选择要分配的线路</option>
-                <option
-                  v-for="route in getAvailableRoutes()"
-                  :key="route.id"
-                  :value="route.id"
-                >
-                  {{ route.name }}
-                </option>
-              </select>
-              <select v-model="assignForm[coach.id].driverId" class="select-input">
-                <option value="">选择司机</option>
-                <option
-                  v-for="driver in availableDrivers"
-                  :key="driver.id"
-                  :value="driver.id"
-                >
-                  {{ driver.name }}
-                </option>
-              </select>
-              <select v-model="assignForm[coach.id].conductorId" class="select-input">
-                <option value="">选择售票员</option>
-                <option
-                  v-for="conductor in availableConductors"
-                  :key="conductor.id"
-                  :value="conductor.id"
-                >
-                  {{ conductor.name }}
-                </option>
-              </select>
-              <button
-                class="assign-btn"
-                :disabled="!canAssignBus(coach.id)"
-                @click="assignBusRoute(coach.id)"
+        <div class="resource-bar" v-else-if="coach.powerType === 'fuel'">
+          <span class="resource-label">⛽ 油量</span>
+          <div class="bar-container">
+            <div class="bar-fill fuel" :style="{ width: `${coach.fuel || 0}%` }"></div>
+          </div>
+          <span class="resource-value">{{ Math.floor(coach.fuel || 0) }}%</span>
+          <button
+            v-if="getBusCanOperate(coach)"
+            class="action-btn refuel"
+            @click="refuelBus(coach.id)"
+          >
+            加油
+          </button>
+          <span v-else-if="coach.needsRefuel" class="hint-text">需到总站加油</span>
+        </div>
+
+        <div class="resource-bar">
+          <span class="resource-label">🧹 清洁度</span>
+          <div class="bar-container">
+            <div class="bar-fill cleanliness" :style="{ width: `${coach.cleanliness || 0}%` }"></div>
+          </div>
+          <span class="resource-value">{{ Math.floor(coach.cleanliness || 0) }}%</span>
+          <button
+            v-if="getBusCanOperate(coach)"
+            class="action-btn clean"
+            @click="cleanBus(coach.id)"
+          >
+            清洁
+          </button>
+          <span v-else-if="coach.needsCleaning" class="hint-text">需到总站清洁</span>
+        </div>
+      </div>
+
+      <div class="route-operation">
+        <div v-if="!coach.routeId" class="assign-section">
+          <div class="assign-form">
+            <select v-model="assignForm[coach.id].routeId" class="select-input full-width">
+              <option value="">选择要分配的线路</option>
+              <option
+                v-for="route in getAvailableRoutes()"
+                :key="route.id"
+                :value="route.id"
               >
-                分配线路
-              </button>
-            </div>
-          </div>
-          <div v-else class="remove-section">
-            <button class="remove-btn" @click="removeBusRoute(coach.id)">
-              取消线路
+                {{ route.name }}
+              </option>
+            </select>
+            <select v-model="assignForm[coach.id].driverId" class="select-input">
+              <option value="">选择司机</option>
+              <option
+                v-for="driver in availableDrivers"
+                :key="driver.id"
+                :value="driver.id"
+              >
+                {{ driver.name }}
+              </option>
+            </select>
+            <select v-model="assignForm[coach.id].conductorId" class="select-input">
+              <option value="">选择售票员</option>
+              <option
+                v-for="conductor in availableConductors"
+                :key="conductor.id"
+                :value="conductor.id"
+              >
+                {{ conductor.name }}
+              </option>
+            </select>
+            <button
+              class="assign-btn"
+              :disabled="!canAssignBus(coach.id)"
+              @click="assignBusRoute(coach.id)"
+            >
+              分配线路
             </button>
           </div>
         </div>
-
-        <div class="coach-upgrades">
-          <span class="upgrade-tag" :class="{ active: coach.hasEntertainment }">
-            娱乐系统
-          </span>
-          <span class="upgrade-tag" :class="{ active: coach.hasWiFi }">
-            WiFi
-          </span>
+        <div v-else class="remove-section">
+          <button class="remove-btn" @click="removeBusRoute(coach.id)">
+            取消线路
+          </button>
         </div>
+      </div>
+
+      <div class="coach-upgrades">
+        <span class="upgrade-tag" :class="{ active: coach.hasEntertainment }">
+          娱乐系统
+        </span>
+        <span class="upgrade-tag" :class="{ active: coach.hasWiFi }">
+          WiFi
+        </span>
       </div>
     </div>
   </div>
+</div>
 </template>
 
 <script>
@@ -290,10 +292,9 @@ export default {
     const assignBusRoute = async (busId) => {
       const form = assignForm[busId]
       if (!canAssignBus(busId)) {
-        ElMessage.warning('请完整选择线路、司机和售票员')
+        ElMessage.warning('请完整选择线路､司机和售票员')
         return
       }
-
       try {
         const success = await store.dispatch('assignBusRoute', {
           busId,
@@ -302,7 +303,7 @@ export default {
           conductorId: form.conductorId
         })
         if (success) {
-          ElMessage.success('线路分配成功！长途巴士已开始运行')
+          ElMessage.success('线路分配成功!长途巴士已开始运行')
           assignForm[busId] = {
             routeId: '',
             driverId: '',
@@ -310,8 +311,8 @@ export default {
           }
         }
       } catch (error) {
-        console.error('分配线路失败：', error)
-        ElMessage.error('线路分配失败，请重试')
+        console.error('分配线路失败:', error)
+        ElMessage.error('线路分配失败,请重试')
       }
     }
 
@@ -319,11 +320,11 @@ export default {
       try {
         const success = await store.dispatch('removeBusRoute', busId)
         if (success) {
-          ElMessage.success('线路取消成功！')
+          ElMessage.success('线路取消成功!')
         }
       } catch (error) {
-        console.error('取消线路失败：', error)
-        ElMessage.error('线路取消失败，请重试')
+        console.error('取消线路失败:', error)
+        ElMessage.error('线路取消失败,请重试')
       }
     }
 
@@ -365,10 +366,16 @@ export default {
 </script>
 
 <style scoped>
+.coach-status {
+  width: 100%;
+  padding: 0 10px;
+  box-sizing: border-box;
+}
 .coach-status h3 {
   margin: 0 0 25px 0;
   color: #333;
   font-size: 24px;
+  text-align: center;
 }
 
 .empty-state {
@@ -382,6 +389,9 @@ export default {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
   gap: 20px;
+  width: 100%;
+  justify-content: center;
+  box-sizing: border-box;
 }
 
 .coach-card {
@@ -389,6 +399,8 @@ export default {
   border-radius: 15px;
   padding: 20px;
   box-shadow: 0 4px 15px rgba(30, 60, 114, 0.3);
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .coach-header {
@@ -402,6 +414,8 @@ export default {
   margin: 0;
   color: white;
   font-size: 18px;
+  text-align: left;
+  margin: 0;
 }
 
 .status-badge {
@@ -702,30 +716,28 @@ export default {
 @media screen and (max-width: 400px) {
   .coach-list {
     grid-template-columns: 1fr;
+    padding: 0 5px;
   }
-
+  .coach-card {
+    padding: 15px;
+  }
   .resource-bar {
     justify-content: space-between;
   }
-
   .bar-container {
     min-width: 60px;
   }
-
   .action-btn {
     padding: 6px 8px;
     font-size: 11px;
   }
-
   .assign-form {
     flex-direction: column;
     width: 100%;
   }
-
   .select-input {
     width: 100%;
   }
-
   .assign-btn {
     width: 100%;
   }
