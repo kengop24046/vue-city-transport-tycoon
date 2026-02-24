@@ -4,6 +4,7 @@
     <div v-if="taxis.length === 0" class="empty-state">
       <p>暂无运营的士，快去商店购买吧!</p>
     </div>
+
     <div v-else class="taxi-list">
       <div v-for="taxi in taxis" :key="taxi.id" class="taxi-card">
         <div class="taxi-header">
@@ -12,29 +13,49 @@
             {{ getTaxiStatusText(taxi) }}
           </span>
         </div>
+
         <div class="taxi-info">
           <div class="info-row">
             <span class="info-label">👨‍✈️ 司机</span>
             <span class="info-value">{{ getDriverName(taxi.driverId) || '未分配司机' }}</span>
+            <button 
+              v-if="!taxi.driverId && availableDrivers.length > 0"
+              class="assign-driver-btn"
+              @click="openAssignDriverModal(taxi.id)"
+            >
+              分配司机
+            </button>
+            <button 
+              v-else-if="taxi.driverId"
+              class="unassign-driver-btn"
+              @click="unassignDriver(taxi.id)"
+            >
+              解除司机
+            </button>
           </div>
+
           <div class="info-row">
             <span class="info-label">📍 当前位置</span>
             <span class="info-value">{{ taxi.currentRoad || '无' }}</span>
           </div>
+
           <div class="info-row" v-if="taxi.status === 'hasPassenger'">
             <span class="info-label">🏁 目的地</span>
             <span class="info-value destination">{{ taxi.targetRoad }}</span>
           </div>
+
           <div class="info-row" v-if="taxi.status === 'hasPassenger'">
             <span class="info-label">💴 本次车费</span>
             <span class="info-value fare">¥{{ taxi.currentFare.toFixed(2) }}</span>
           </div>
+
           <div class="info-row">
             <span class="info-label">👥 乘客</span>
             <span class="info-value">
               {{ taxi.passengers }} / {{ getTaxiModel(taxi.modelId)?.capacity || 0 }}
             </span>
           </div>
+
           <div class="progress-section" v-if="taxi.status === 'hasPassenger'">
             <div class="progress-label">
               <span>📈 到目的地进度</span>
@@ -45,6 +66,7 @@
             </div>
           </div>
         </div>
+
         <div class="resource-bars">
           <div class="resource-bar" v-if="taxi.powerType === 'electric'">
             <span class="resource-label">🔋 电量</span>
@@ -61,6 +83,7 @@
             </button>
             <span v-else-if="taxi.needsCharge" class="hint-text">🔌 电量不足</span>
           </div>
+
           <div class="resource-bar" v-else-if="taxi.powerType === 'fuel'">
             <span class="resource-label">⛽ 油量</span>
             <div class="bar-container">
@@ -76,6 +99,7 @@
             </button>
             <span v-else-if="taxi.needsRefuel" class="hint-text">油量不足</span>
           </div>
+
           <div class="resource-bar">
             <span class="resource-label">🧹 清洁度</span>
             <div class="bar-container">
@@ -94,30 +118,84 @@
         </div>
       </div>
     </div>
+
+    <div class="modal-overlay" v-if="showAssignDriverModal" @click="closeAssignDriverModal">
+      <div class="assign-driver-modal" @click.stop>
+        <div class="modal-header">
+          <h3>分配司机</h3>
+          <button class="close-btn" @click="closeAssignDriverModal">×</button>
+        </div>
+        <div class="modal-body">
+          <p>请选择要分配给该的士的司机：</p>
+          <div v-if="availableDrivers.length === 0" class="no-drivers">
+            <p>暂无可用司机（请先雇佣的士司机）</p>
+          </div>
+          <select 
+            v-else 
+            v-model="selectedDriverId" 
+            class="driver-select"
+          >
+            <option value="">-- 选择司机 --</option>
+            <option 
+              v-for="driver in availableDrivers" 
+              :key="driver.id" 
+              :value="driver.id"
+            >
+              {{ driver.name }} (等级：{{ driver.level || 1 }})
+            </option>
+          </select>
+        </div>
+        <div class="modal-footer">
+          <button 
+            class="cancel-btn" 
+            @click="closeAssignDriverModal"
+          >
+            取消
+          </button>
+          <button 
+            class="confirm-btn" 
+            @click="confirmAssignDriver"
+            :disabled="!selectedDriverId"
+          >
+            确认分配
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
 <script>
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { useStore } from 'vuex'
 
 export default {
   name: 'TaxiStatus',
   setup() {
     const store = useStore()
-
     const taxis = computed(() => store.state.taxis)
     const taxiDrivers = computed(() => store.state.employees.taxiDrivers)
+    const showAssignDriverModal = ref(false)
+    const selectedDriverId = ref('')
+    const currentTaxiId = ref('')
+    const availableDrivers = computed(() => {
+      const assignedDriverIds = taxis.value
+        .filter(taxi => taxi.driverId)
+        .map(taxi => taxi.driverId)
+        .filter(id => id !== parseInt(currentTaxiId.value))
 
-    const getTaxiModel = (modelId) => {
-      return store.getters.getTaxiModel(modelId)
-    }
+      return taxiDrivers.value.filter(driver => {
+        return driver.hired && 
+               !driver.assignedVehicleId &&
+               !assignedDriverIds.includes(driver.id)
+      })
+    })
 
-    const getTaxiCanOperate = (taxi) => {
-      return store.getters.getTaxiCanOperate(taxi)
-    }
-
+    const getTaxiModel = (modelId) => store.getters.getTaxiModel(modelId)
+    const getTaxiCanOperate = (taxi) => store.getters.getTaxiCanOperate(taxi)
+    
     const getDriverName = (driverId) => {
+      if (!driverId) return '未分配'
       const driver = taxiDrivers.value.find(d => d.id === driverId && d.hired)
       return driver?.name || '未分配'
     }
@@ -137,17 +215,32 @@ export default {
       return 'offline'
     }
 
-    const refuelTaxi = (taxiId) => {
-      store.dispatch('refuelTaxi', taxiId)
+    const refuelTaxi = (taxiId) => store.dispatch('refuelTaxi', taxiId)
+    const chargeTaxi = (taxiId) => store.dispatch('chargeTaxi', taxiId)
+    const cleanTaxi = (taxiId) => store.dispatch('cleanTaxi', taxiId)
+
+    const openAssignDriverModal = (taxiId) => {
+      currentTaxiId.value = taxiId
+      selectedDriverId.value = ''
+      showAssignDriverModal.value = true
     }
 
-    const chargeTaxi = (taxiId) => {
-      store.dispatch('chargeTaxi', taxiId)
+    const closeAssignDriverModal = () => {
+      showAssignDriverModal.value = false
+      selectedDriverId.value = ''
+      currentTaxiId.value = ''
     }
 
-    const cleanTaxi = (taxiId) => {
-      store.dispatch('cleanTaxi', taxiId)
+    const confirmAssignDriver = () => {
+      if (!currentTaxiId.value || !selectedDriverId.value) return
+      store.dispatch('assignTaxiDriver', {
+        taxiId: parseInt(currentTaxiId.value),
+        driverId: parseInt(selectedDriverId.value)
+      })
+      closeAssignDriverModal()
     }
+
+    const unassignDriver = (taxiId) => store.dispatch('unassignTaxiDriver', taxiId)
 
     return {
       taxis,
@@ -158,7 +251,14 @@ export default {
       getTaxiStatusClass,
       refuelTaxi,
       chargeTaxi,
-      cleanTaxi
+      cleanTaxi,
+      showAssignDriverModal,
+      selectedDriverId,
+      availableDrivers,
+      openAssignDriverModal,
+      closeAssignDriverModal,
+      confirmAssignDriver,
+      unassignDriver
     }
   }
 }
@@ -260,6 +360,36 @@ export default {
 .info-value.fare {
   color: #d32f2f;
   font-weight: bold;
+}
+
+.assign-driver-btn {
+  padding: 4px 8px;
+  border: none;
+  border-radius: 4px;
+  background: #4caf50;
+  color: white;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.assign-driver-btn:hover {
+  background: #388e3c;
+}
+
+.unassign-driver-btn {
+  padding: 4px 8px;
+  border: none;
+  border-radius: 4px;
+  background: #f44336;
+  color: white;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.unassign-driver-btn:hover {
+  background: #d32f2f;
 }
 
 .progress-section {
@@ -379,6 +509,113 @@ export default {
 .action-btn:hover {
   transform: translateY(-2px);
   box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+}
+
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.assign-driver-modal {
+  background: white;
+  border-radius: 10px;
+  width: 90%;
+  max-width: 400px;
+  padding: 20px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 15px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #eee;
+}
+
+.modal-header h3 {
+  margin: 0;
+  color: #333;
+}
+
+.close-btn {
+  background: transparent;
+  border: none;
+  font-size: 20px;
+  cursor: pointer;
+  color: #999;
+}
+
+.close-btn:hover {
+  color: #333;
+}
+
+.modal-body {
+  margin-bottom: 20px;
+}
+
+.modal-body p {
+  margin: 0 0 10px 0;
+  color: #666;
+}
+
+.no-drivers {
+  color: #999;
+  text-align: center;
+  padding: 10px 0;
+}
+
+.driver-select {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid #ddd;
+  border-radius: 5px;
+  font-size: 14px;
+  color: #333;
+}
+
+.modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.cancel-btn {
+  padding: 8px 16px;
+  border: 1px solid #ddd;
+  border-radius: 5px;
+  background: white;
+  color: #666;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.confirm-btn {
+  padding: 8px 16px;
+  border: none;
+  border-radius: 5px;
+  background: #ff9800;
+  color: white;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.confirm-btn:disabled {
+  background: #ccc;
+  cursor: not-allowed;
+}
+
+.confirm-btn:hover:not(:disabled) {
+  background: #f57c00;
 }
 
 @media screen and (max-width: 400px) {

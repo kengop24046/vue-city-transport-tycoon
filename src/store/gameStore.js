@@ -332,6 +332,23 @@ export default createStore({
   },
 
   mutations: {
+    ASSIGN_TAXI_DRIVER(state, { taxiId, driverId }) {
+      const taxi = state.taxis.find(t => t.id === taxiId);
+      if (taxi) taxi.driverId = driverId;
+      
+      const driver = state.employees.taxiDrivers.find(d => d.id === driverId);
+      if (driver) driver.assignedVehicleId = taxiId;
+    },
+
+    UNASSIGN_TAXI_DRIVER(state, taxiId) {
+      const taxi = state.taxis.find(t => t.id === taxiId);
+      if (taxi) {
+        const driver = state.employees.taxiDrivers.find(d => d.id === taxi.driverId);
+        if (driver) driver.assignedVehicleId = null;
+        taxi.driverId = null;
+      }
+    },
+
     SET_INITIAL_STATE(state) {
       Object.assign(state, getInitialState())
     },
@@ -533,6 +550,7 @@ export default createStore({
         ...plane,
         id: state.planes.length + 1,
         flightStage: 'docked',
+        status: 'idle',
         boardingProgress: 0,
         cleanliness: 100,
         needsCleaning: false
@@ -615,6 +633,14 @@ export default createStore({
   },
 
   actions: {
+    assignTaxiDriver({ commit }, { taxiId, driverId }) {
+      commit('ASSIGN_TAXI_DRIVER', { taxiId, driverId });
+    },
+    
+    unassignTaxiDriver({ commit }, taxiId) {
+      commit('UNASSIGN_TAXI_DRIVER', taxiId);
+    },
+
     saveGame({ state, commit }) {
       try {
         const stateToSave = { ...state }
@@ -633,9 +659,10 @@ export default createStore({
         if (saved) {
           const decrypted = decryptData(saved)
           const offlineTime = Date.now() - decrypted.lastOnlineTime
+          let offlineEarnings = { total: 0 }
 
           if (offlineTime > 60000) {
-            const offlineEarnings = calculateOfflineEarnings(decrypted, offlineTime)
+            offlineEarnings = calculateOfflineEarnings(decrypted, offlineTime)
             decrypted.money += offlineEarnings.total
             decrypted.experience += Math.floor(offlineEarnings.total / 20)
           }
@@ -772,7 +799,7 @@ export default createStore({
 
       if (state.companyLevel >= 6) {
         state.planes.forEach(plane => {
-          if (plane.status === 'running' && plane.routeId) {
+          if (plane.flightStage === 'flying' && plane.routeId) {
             const updates = updateVehicleProgress(plane, 'plane', getters)
             commit('UPDATE_PLANE', { id: plane.id, updates })
 
@@ -1125,6 +1152,7 @@ export default createStore({
         commit('ADD_PLANE', {
           modelId,
           routeId: null,
+          flightStage: 'docked',
           status: 'idle',
           currentPointIndex: 0,
           progress: 0,
@@ -1278,7 +1306,8 @@ export default createStore({
       const cost = upgradeCosts[upgradeType]
       if (!cost || state.money < cost) return false
 
-      if (type === 'bus' && !['city', 'coach'].includes(type)) return false
+      // 修复：逻辑判断错误，原判断写反导致巴士升级功能失效
+      if (['city', 'coach'].includes(type) && type !== 'bus') return false
 
       let vehicle, updateFn
       switch (type) {

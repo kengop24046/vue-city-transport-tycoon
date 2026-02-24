@@ -91,9 +91,12 @@ export function calculateOfflineEarnings(state, offlineTime) {
     const runningMetroCount = state.metros.filter(m => m.status === 'running' && m.routeId).length
     const metroIncome = runningMetroCount * 8000 * hours;
     const metroElectricityCost = runningMetroCount * 1200 * hours;
-    if (metroIncome > 0) {
-      breakdown.metro = metroIncome - metroElectricityCost;
-      total += (metroIncome - metroElectricityCost);
+    const metroNetIncome = metroIncome - metroElectricityCost;
+    if (metroNetIncome > 0) {
+      breakdown.metro = metroNetIncome;
+      total += metroNetIncome;
+    } else if (metroIncome > 0) {
+      breakdown.metro = 0;
     }
   }
 
@@ -101,9 +104,12 @@ export function calculateOfflineEarnings(state, offlineTime) {
     const runningHsrCount = state.highSpeedRails.filter(h => h.status === 'running' && h.routeId).length
     const hsrIncome = runningHsrCount * 30000 * hours;
     const hsrElectricityCost = runningHsrCount * 8000 * hours;
-    if (hsrIncome > 0) {
-      breakdown.hsr = hsrIncome - hsrElectricityCost;
-      total += (hsrIncome - hsrElectricityCost);
+    const hsrNetIncome = hsrIncome - hsrElectricityCost;
+    if (hsrNetIncome > 0) {
+      breakdown.hsr = hsrNetIncome;
+      total += hsrNetIncome;
+    } else if (hsrIncome > 0) {
+      breakdown.hsr = 0;
     }
   }
 
@@ -120,19 +126,22 @@ export function updateTaxiProgress(taxi, getters) {
   const updates = {};
   let earnedMoney = 0;
   let electricityCost = 0;
+  let fuelCost = 0;
 
   const model = getters.getTaxiModel(taxi.modelId);
   const cityRoads = getters.getCityRoads(taxi.cityId);
-  if (!model || cityRoads.length === 0) return updates;
+  if (!model || !cityRoads || cityRoads.length === 0) return updates;
 
   const consumeConfig = energyConsumption.taxi;
   if (taxi.powerType === 'electric') {
     updates.battery = Math.max(0, (taxi.battery || 100) - consumeConfig.electric);
+    electricityCost = consumeConfig.electric * 1;
     if (updates.battery <= 20) {
       updates.needsCharge = true;
     }
   } else if (taxi.powerType === 'fuel') {
     updates.fuel = Math.max(0, (taxi.fuel || 100) - consumeConfig.fuel);
+    fuelCost = consumeConfig.fuel * 2.5;
     if (updates.fuel <= 20) {
       updates.needsRefuel = true;
     }
@@ -190,6 +199,7 @@ export function updateTaxiProgress(taxi, getters) {
 
   updates.earnedMoney = earnedMoney;
   updates.electricityCost = electricityCost;
+  updates.fuelCost = fuelCost;
   return updates;
 }
 
@@ -197,6 +207,7 @@ export function updateVehicleProgress(vehicle, type, getters) {
   const updates = {};
   let earnedMoney = 0;
   let electricityCost = 0;
+  let fuelCost = 0;
 
   const modelGetter = {
     bus: 'getBusModel',
@@ -217,6 +228,8 @@ export function updateVehicleProgress(vehicle, type, getters) {
     const BOARDING_SPEED = 1;
     const FLYING_SPEED = speedMultiplier.plane;
 
+    if (stops.length === 0) return updates;
+
     if (vehicle.flightStage === 'docked') {
       updates.passengers = 0;
       updates.flightStage = 'boarding';
@@ -229,11 +242,13 @@ export function updateVehicleProgress(vehicle, type, getters) {
       if (Math.random() < 0.3 && vehicle.passengers < model.capacity * 0.95) {
         const addPassengers = Math.floor(Math.random() * 20);
         const finalAdd = Math.min(addPassengers, model.capacity * 0.95 - vehicle.passengers);
-        updates.passengers = vehicle.passengers + finalAdd;
-        earnedMoney += finalAdd * (route.fare || 500);
-        if (vehicle.hasEntertainment) earnedMoney += finalAdd * 20;
-        if (vehicle.hasWiFi) earnedMoney += finalAdd * 10;
-        if (!vehicle.needsSupplies) earnedMoney += finalAdd * 30;
+        updates.passengers = (vehicle.passengers || 0) + finalAdd;
+        const baseFareIncome = finalAdd * (route.fare || 500);
+        const entertainmentIncome = vehicle.hasEntertainment ? finalAdd * 20 : 0;
+        const wifiIncome = vehicle.hasWiFi ? finalAdd * 10 : 0;
+        const supplyIncome = !vehicle.needsSupplies ? finalAdd * 30 : 0;
+        
+        earnedMoney += baseFareIncome + entertainmentIncome + wifiIncome + supplyIncome;
       }
 
       if (updates.boardingProgress >= BOARDING_FULL) {
@@ -241,14 +256,17 @@ export function updateVehicleProgress(vehicle, type, getters) {
         updates.progress = 0;
         if (vehicle.fuel <= 20) updates.needsRefuel = true;
         if (Math.random() < 0.1) updates.needsSupplies = true;
-        updates.earnedMoney = earnedMoney;
-        return updates;
       }
+
+      updates.earnedMoney = earnedMoney;
+      return updates;
     }
 
     if (vehicle.flightStage === 'flying') {
       updates.progress = (vehicle.progress || 0) + FLYING_SPEED;
       updates.fuel = Math.max(0, (vehicle.fuel || 100) - energyConsumption.plane.fuel);
+      fuelCost = energyConsumption.plane.fuel * 20;
+      
       if (updates.fuel <= 10) {
         updates.needsRefuel = true;
       }
@@ -261,24 +279,25 @@ export function updateVehicleProgress(vehicle, type, getters) {
       if (updates.progress >= 100) {
         updates.flightStage = 'arrived';
         updates.progress = 0;
-        return updates;
       }
     }
 
     if (vehicle.flightStage === 'arrived') {
       updates.currentPointIndex = ((vehicle.currentPointIndex || 0) + 1) % stops.length;
       updates.flightStage = 'docked';
-      updates.passengers = Math.floor(vehicle.passengers * 0.05);
-      return updates;
+      updates.passengers = Math.floor((vehicle.passengers || 0) * 0.05);
     }
 
     updates.earnedMoney = earnedMoney;
+    updates.fuelCost = fuelCost;
     return updates;
   }
 
   if (type === 'bus' || type === 'coach') {
     const outboundStops = route.stops?.outbound || [];
     const inboundStops = route.stops?.inbound || [];
+    if (outboundStops.length === 0 && inboundStops.length === 0) return updates;
+
     const currentDirection = vehicle.direction || 'outbound';
     const currentStops = currentDirection === 'outbound' ? outboundStops : inboundStops;
     const currentStopIndex = vehicle.currentStopIndex || 0;
@@ -304,6 +323,7 @@ export function updateVehicleProgress(vehicle, type, getters) {
           updates.direction = nextDirection;
           updates.stopCountdown = TERMINAL_STOP_DURATION;
           updates.status = 'stopped';
+          
           const reverseStops = nextDirection === 'outbound' ? outboundStops : inboundStops;
           const reverseFirstStopName = reverseStops[0] || '';
           updates.isAtTerminal = BUS_TERMINAL_WHITELIST[route.city]?.includes(reverseFirstStopName) || true;
@@ -324,11 +344,13 @@ export function updateVehicleProgress(vehicle, type, getters) {
       const consumeConfig = energyConsumption[busType] || energyConsumption.city;
       if (vehicle.powerType === 'electric') {
         updates.battery = Math.max(0, (vehicle.battery || 100) - consumeConfig.electric);
+        electricityCost = consumeConfig.electric * 1.2;
         if (updates.battery <= 10) {
           updates.needsCharge = true;
         }
       } else if (vehicle.powerType === 'fuel') {
         updates.fuel = Math.max(0, (vehicle.fuel || 100) - consumeConfig.fuel);
+        fuelCost = consumeConfig.fuel * 3;
         if (updates.fuel <= 10) {
           updates.needsRefuel = true;
         }
@@ -346,53 +368,57 @@ export function updateVehicleProgress(vehicle, type, getters) {
         updates.isAtTerminal = isTerminal;
 
         const maxCapacity = model.capacity || 0;
-        const alightPassengers = Math.floor(vehicle.passengers * (0.2 + Math.random() * 0.6));
-        let remainingPassengers = Math.max(0, vehicle.passengers - alightPassengers);
+        const alightPassengers = Math.floor((vehicle.passengers || 0) * (0.2 + Math.random() * 0.6));
+        let remainingPassengers = Math.max(0, (vehicle.passengers || 0) - alightPassengers);
         const boardPassengers = Math.floor(Math.random() * (maxCapacity - remainingPassengers));
         updates.passengers = remainingPassengers + boardPassengers;
 
         const baseFare = route.fare || 2;
         earnedMoney = boardPassengers * baseFare;
-        if (type === 'coach' && vehicle.hasEntertainment) earnedMoney += boardPassengers * 5;
-        if (type === 'coach' && vehicle.hasWiFi) earnedMoney += boardPassengers * 2;
-        updates.earnedMoney = earnedMoney;
+        if (type === 'coach') {
+          if (vehicle.hasEntertainment) earnedMoney += boardPassengers * 5;
+          if (vehicle.hasWiFi) earnedMoney += boardPassengers * 2;
+        }
       }
     }
 
+    updates.earnedMoney = earnedMoney;
     updates.electricityCost = electricityCost;
+    updates.fuelCost = fuelCost;
     return updates;
   }
 
   if (type === 'metro' || type === 'hsr') {
     const stops = route.stops?.outbound || route.stops || [];
+    if (stops.length === 0) return updates;
+
     const currentStopIndex = vehicle.currentStopIndex || 0;
     const isStopped = vehicle.status === 'stopped';
 
     if (isStopped) {
       updates.stopCountdown = Math.max(0, (vehicle.stopCountdown || 0) - 1);
-      const alightPassengers = Math.floor(vehicle.passengers * (0.3 + Math.random() * 0.5));
-      updates.passengers = Math.max(0, vehicle.passengers - alightPassengers);
+      const alightPassengers = Math.floor((vehicle.passengers || 0) * (0.3 + Math.random() * 0.5));
+      updates.passengers = Math.max(0, (vehicle.passengers || 0) - alightPassengers);
       
       if (updates.stopCountdown <= 0) {
         updates.status = 'running';
         updates.progress = 0;
-        return updates;
       }
+      return updates;
     }
 
     if (vehicle.status === 'running' && vehicle.routeId) {
       updates.progress = (vehicle.progress || 0) + (speedMultiplier[type] || 1);
 
-      if (Math.random() < 0.3 && vehicle.passengers < model.capacity * 0.95) {
+      if (Math.random() < 0.3 && (vehicle.passengers || 0) < model.capacity * 0.95) {
         const addPassengers = Math.floor(Math.random() * 50);
-        const finalAdd = Math.min(addPassengers, model.capacity * 0.95 - vehicle.passengers);
-        updates.passengers = vehicle.passengers + finalAdd;
+        const finalAdd = Math.min(addPassengers, model.capacity * 0.95 - (vehicle.passengers || 0));
+        updates.passengers = (vehicle.passengers || 0) + finalAdd;
         const baseFare = route.fare || (type === 'metro' ? 5 : 100);
         earnedMoney = finalAdd * baseFare;
         if (vehicle.hasEntertainment) earnedMoney += finalAdd * 10;
         if (vehicle.hasWiFi) earnedMoney += finalAdd * 5;
         if (type === 'hsr' && !vehicle.needsSupplies) earnedMoney += finalAdd * 20;
-        updates.earnedMoney = earnedMoney;
       }
 
       updates.cleanliness = Math.max(0, (vehicle.cleanliness || 100) - 0.05);
@@ -405,7 +431,7 @@ export function updateVehicleProgress(vehicle, type, getters) {
         updates.currentStopIndex = ((vehicle.currentStopIndex || 0) + 1) % stops.length;
         updates.status = 'stopped';
         updates.arrived = true;
-        updates.electricityCost = energyConsumption[type].electric;
+        electricityCost = energyConsumption[type].electric;
 
         if (type === 'hsr') {
           const { min, max } = STOP_DURATION.hsr;
@@ -416,6 +442,8 @@ export function updateVehicleProgress(vehicle, type, getters) {
       }
     }
 
+    updates.earnedMoney = earnedMoney;
+    updates.electricityCost = electricityCost;
     return updates;
   }
 
