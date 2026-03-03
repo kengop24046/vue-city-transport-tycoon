@@ -15,6 +15,11 @@ import metroModels from '../data/metroModels'
 import highSpeedRailModels from '../data/highSpeedRailModels'
 import cities from '../data/cities'
 
+const getTodayDateStr = () => {
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
 const BUS_TERMINAL_WHITELIST = {
   macau: ['关闸总站', '妈阁总站', '永宁广场总站', '外港码头总站', '氹仔花城总站', '旅游塔/行车隧道', '路环市区'],
   hongkong: ['坚尼地城', '北角', '香港国际机场', '中环'],
@@ -224,6 +229,10 @@ const getInitialState = () => ({
   // 财务记录
   financialRecords: [],
 
+  financeSelectedDate: getTodayDateStr(),
+  financeFilterType: 'all',
+  financeFilterCategory: 'all',
+
   // 设置
   settings: {
     soundEnabled: true,
@@ -332,6 +341,16 @@ export default createStore({
   },
 
   mutations: {
+    SET_FINANCE_SELECTED_DATE(state, date) {
+      state.financeSelectedDate = date
+    },
+    SET_FINANCE_FILTER_TYPE(state, type) {
+      state.financeFilterType = type
+    },
+    SET_FINANCE_FILTER_CATEGORY(state, category) {
+      state.financeFilterCategory = category
+    },
+
     ASSIGN_TAXI_DRIVER(state, { taxiId, driverId }) {
       const taxi = state.taxis.find(t => t.id === taxiId);
       if (taxi) taxi.driverId = driverId;

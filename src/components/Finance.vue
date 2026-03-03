@@ -1,27 +1,36 @@
 <template>
 <div class="finance">
 <h2>💰 财务报表</h2>
+<div class="date-section">
+  <label class="date-label">查看日期：</label>
+  <input 
+    v-model="selectedDate" 
+    type="date" 
+    class="date-input"
+  />
+  <span class="date-tip" v-if="selectedDate === todayDate">【今天】</span>
+</div>
 <div class="finance-summary">
 <div class="summary-card income">
 <div class="summary-icon">📈</div>
 <div class="summary-content">
-<h3>总收入</h3>
+<h3>当日总收入</h3>
 <p class="big-number">¥{{ formatMoney(totalIncome) }}</p>
 </div>
 </div>
 <div class="summary-card expense">
 <div class="summary-icon">📉</div>
 <div class="summary-content">
-<h3>总支出</h3>
+<h3>当日总支出</h3>
 <p class="big-number">¥{{ formatMoney(totalExpense) }}</p>
 </div>
 </div>
 <div class="summary-card profit">
 <div class="summary-icon">💹</div>
 <div class="summary-content">
-<h3>净利润</h3>
+<h3>当日净利润</h3>
 <p class="big-number" :class="{ negative: netProfit < 0 }">
-{{ netProfit >= 0 ? '+' : '' }}¥{{ formatMoney(netProfit) }}
+{{ netProfit >= 0 ? '+' : '' }}¥{{ formatMoney(Math.abs(netProfit)) }}
 </p>
 </div>
 </div>
@@ -48,9 +57,14 @@
 </div>
 <div class="records-list">
 <div v-if="filteredRecords.length === 0" class="empty-state">
-<p>暂无财务记录</p>
+<p>该日期暂无财务记录</p>
 </div>
-<div v-for="(record, index) in filteredRecords" :key="index" class="record-card" :class="record.type">
+<div 
+  v-for="(record, index) in filteredRecords" 
+  :key="index" 
+  class="record-card" 
+  :class="record.type"
+>
 <div class="record-icon">
 {{ getCategoryIcon(record.category) }}
 </div>
@@ -66,83 +80,192 @@
 </div>
 </template>
 <script>
-import { computed, ref } from 'vue'
+import { computed, ref, onMounted, onUnmounted, onActivated } from 'vue'
 import { useStore } from 'vuex'
 export default {
 name: 'Finance',
 setup() {
 const store = useStore()
-const filterType = ref('all')
-const filterCategory = ref('all')
-const financialRecords = computed(() => store.state.financialRecords)
+const todayDate = ref('')
+const selectedDate = computed({
+get: () => store.state.financeSelectedDate,
+set: (val) => store.commit('SET_FINANCE_SELECTED_DATE', val)
+})
+const filterType = computed({
+get: () => store.state.financeFilterType,
+set: (val) => store.commit('SET_FINANCE_FILTER_TYPE', val)
+})
+const filterCategory = computed({
+get: () => store.state.financeFilterCategory,
+set: (val) => store.commit('SET_FINANCE_FILTER_CATEGORY', val)
+})
+const financialRecords = computed(() => store.state.financialRecords || []) // 兜底空数组，避免undefined
+
+const initToday = () => {
+  const d = new Date()
+  todayDate.value = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
+const getDateStr = (timestamp) => {
+  const d = new Date(timestamp)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
+const MIN_VALID_AMOUNT = 1
+const isValidAmount = (amount) => {
+  if (amount === undefined || amount === null) return false
+  const num = Number(amount)
+  const valid = !isNaN(num) && isFinite(num) && num >= MIN_VALID_AMOUNT
+  return valid
+}
+
 const totalIncome = computed(() => {
-return financialRecords.value
-.filter(r => r.type === 'income' && r.amount > 0)
-.reduce((sum, r) => sum + r.amount, 0)
+  return financialRecords.value
+  .filter(r => {
+    if (typeof r !== 'object' || r === null) return false
+    return getDateStr(r.timestamp) === selectedDate.value
+    && r.type === 'income'
+    && isValidAmount(r.amount)
+  })
+  .reduce((sum, r) => sum + Number(r.amount), 0)
 })
+
 const totalExpense = computed(() => {
-return financialRecords.value
-.filter(r => r.type === 'expense' && r.amount > 0)
-.reduce((sum, r) => sum + r.amount, 0)
+  return financialRecords.value
+  .filter(r => {
+    if (typeof r !== 'object' || r === null) return false
+    return getDateStr(r.timestamp) === selectedDate.value
+    && r.type === 'expense'
+    && isValidAmount(r.amount)
+  })
+  .reduce((sum, r) => sum + Number(r.amount), 0)
 })
+
 const netProfit = computed(() => totalIncome.value - totalExpense.value)
+
 const filteredRecords = computed(() => {
-return financialRecords.value.filter(r => {
-const typeMatch = filterType.value === 'all' || r.type === filterType.value
-const categoryMatch = filterCategory.value === 'all' || r.category === filterCategory.value
-const amountMatch = r.amount > 0
-return typeMatch && categoryMatch && amountMatch
+  const validRecords = financialRecords.value.filter(r => typeof r === 'object' && r !== null)
+  const dateFiltered = validRecords.filter(r => getDateStr(r.timestamp) === selectedDate.value)
+  const finalFiltered = dateFiltered.filter(r => {
+    const typeMatch = filterType.value === 'all' || r.type === filterType.value
+    const categoryMatch = filterCategory.value === 'all' || r.category === filterCategory.value
+    const amountValid = isValidAmount(r.amount)
+    return typeMatch && categoryMatch && amountValid
+  })
+
+  const zeroAmountRecords = dateFiltered.filter(r => !isValidAmount(r.amount))
+  if (zeroAmountRecords.length > 0 && process.env.NODE_ENV === 'development') {
+    console.log(`【${selectedDate.value}】过滤的无效金额记录数：`, zeroAmountRecords.length)
+  }
+
+  return finalFiltered
 })
-})
+
 const formatMoney = (amount) => {
-if (amount >= 100000000) {
-return (amount / 100000000).toFixed(2) + '亿'
-} else if (amount >= 10000) {
-return (amount / 10000).toFixed(2) + '万'
+  const num = Number(amount)
+  if (isNaN(num) || num < MIN_VALID_AMOUNT) return '0'
+  
+  if (num >= 100000000) {
+    return (num / 100000000).toFixed(2) + '亿'
+  } else if (num >= 10000) {
+    return (num / 10000).toFixed(2) + '万'
+  }
+  return Math.floor(num).toLocaleString()
 }
-return Math.floor(amount).toLocaleString()
-}
+
 const formatTime = (timestamp) => {
-const date = new Date(timestamp)
-return date.toLocaleString('zh-CN')
+  const date = new Date(timestamp)
+  return date.toLocaleString('zh-CN')
 }
+
 const getCategoryIcon = (category) => {
-const icons = {
-bus: '🚌',
-plane: '✈️',
-metro: '🚇',
-hsr: '🚄',
-bike: '🚲',
-salary: '👥',
-purchase: '🛒',
-fuel: '⛽',
-electricity: '⚡',
-cleaning: '🧹',
-supplies: '🍽️',
-hiring: '📝',
-city: '🏙️',
-upgrade: '⬆️',
-levelUp: '🎊',
-offline: '🕐',
-other: '📋'
+  const icons = {
+    bus: '🚌',
+    plane: '✈️',
+    metro: '🚇',
+    hsr: '🚄',
+    bike: '🚲',
+    salary: '👥',
+    purchase: '🛒',
+    fuel: '⛽',
+    electricity: '⚡',
+    cleaning: '🧹',
+    supplies: '🍽️',
+    hiring: '📝',
+    city: '🏙️',
+    upgrade: '⬆️',
+    levelUp: '🎊',
+    offline: '🕐',
+    other: '📋'
+  }
+  return icons[category] || '📋'
 }
-return icons[category] || '📋'
+
+let refreshTimer = null
+const startAutoRefresh = () => {
+  refreshTimer = setInterval(() => {
+    console.log('财务报表自动刷新（无数据篡改）')
+  }, 5000)
 }
+
+onMounted(() => {
+  initToday()
+  startAutoRefresh()
+})
+onActivated(() => {
+  initToday()
+})
+onUnmounted(() => {
+  if (refreshTimer) clearInterval(refreshTimer)
+})
+
 return {
-filterType,
-filterCategory,
-totalIncome,
-totalExpense,
-netProfit,
-filteredRecords,
-formatMoney,
-formatTime,
-getCategoryIcon
+  todayDate,
+  selectedDate,
+  filterType,
+  filterCategory,
+  totalIncome,
+  totalExpense,
+  netProfit,
+  filteredRecords,
+  formatMoney,
+  formatTime,
+  getCategoryIcon
 }
 }
 }
 </script>
 <style scoped>
+.date-section {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+.date-label {
+  font-size: 14px;
+  color: #333;
+  font-weight: 500;
+}
+.date-input {
+  padding: 10px 15px;
+  border: 2px solid #e0e0e0;
+  border-radius: 10px;
+  font-size: 14px;
+  background: white;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+.date-input:focus {
+  outline: none;
+  border-color: #667eea;
+}
+.date-tip {
+  color: #4caf50;
+  font-size: 14px;
+  font-weight: 500;
+}
 .finance h2 {
 margin: 0 0 25px 0;
 color: #333;
