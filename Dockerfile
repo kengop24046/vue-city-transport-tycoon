@@ -1,28 +1,19 @@
-# 构建阶段：使用Node环境编译项目
-FROM node:18-alpine AS builder
-# 设置工作目录
+# 阶段1：构建Vue项目（直接设置base为/，无需.env.docker）
+FROM node:20-alpine as build-stage
 WORKDIR /app
-# 复制package文件，优先安装依赖（利用Docker缓存）
+# 复制依赖文件
 COPY package*.json ./
-# 安装项目依赖
-RUN npm install
-# 复制全部项目文件
+RUN npm install --frozen-lockfile
+# 复制所有源码
 COPY . .
-# 执行生产环境构建
-RUN npm run build
+# 构建时手动指定环境变量，强制base为/
+RUN VITE_BASE_URL=/ npm run build
 
-# 运行阶段：使用Nginx提供静态服务
-FROM nginx:alpine
-# 维护者信息
-LABEL maintainer="city-transport-tycoon"
-# 设置时区
-ENV TZ=Asia/Shanghai
-RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
-# 从构建阶段复制打包后的产物到Nginx目录
-COPY --from=builder /app/dist /usr/share/nginx/html
-# 复制自定义Nginx配置（解决Vue路由404问题）
-COPY nginx/default.conf /etc/nginx/conf.d/default.conf
-# 暴露80端口
+# 阶段2：Nginx部署（使用默认Nginx配置，跳过自定义nginx.conf）
+FROM nginx:alpine as production-stage
+# 复制构建产物到Nginx根目录
+COPY --from=build-stage /app/dist /usr/share/nginx/html
+# 暴露端口
 EXPOSE 80
-# 前台启动Nginx
+# 启动Nginx
 CMD ["nginx", "-g", "daemon off;"]
