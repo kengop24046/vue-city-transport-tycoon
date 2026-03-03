@@ -3,9 +3,11 @@ import vue from '@vitejs/plugin-vue'
 
 export default defineConfig({
   plugins: [vue()],
-  base: '/vue-city-transport-tycoon/', 
+  base: '/vue-city-transport-tycoon/',
   build: {
     outDir: 'dist',
-    emptyOutDir: true
-  }
+    emptyOutDir: true,
+    assetsDir: 'assets'
+  },
+  publicDir: 'public'
 })
