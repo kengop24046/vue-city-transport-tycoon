@@ -59,10 +59,8 @@ const getInitialState = () => ({
   money: 10000000,
   lastSaveTime: Date.now(),
   lastOnlineTime: Date.now(),
-
   // 解锁的城市
   unlockedCities: ['macau'],
-
   // 员工
   employees: {
     busDrivers: [
@@ -87,7 +85,10 @@ const getInitialState = () => ({
     hsrDrivers: [],
     hsrAttendants: []
   },
-
+  busTrafficLightTimer: 0,
+  isBusWaitingTrafficLight: false,
+  taxiTrafficLightTimer: 0,
+  isTaxiWaitingTrafficLight: false,
   buses: [
     {
       id: 1,
@@ -159,7 +160,12 @@ const getInitialState = () => ({
       hasWiFi: false,
       direction: 'outbound',
       stopCountdown: 0,
-      isAtTerminal: false
+      isAtTerminal: false,
+      currentSectionType: 'urban',
+      isWaitingTrafficLight: false,
+      trafficLightWaitTime: 0,
+      isWaitingTollGate: false,
+      tollGateWaitTime: 0
     }
   ],
   // 的士数组
@@ -210,14 +216,12 @@ const getInitialState = () => ({
   planes: [],
   metros: [],
   highSpeedRails: [],
-
   // 共享单车
   sharedBikes: {
     totalBikes: 10,
     activeRentals: [],
     bikeCondition: 100
   },
-
   activeRoutes: {
     bus: [],
     coach: [],
@@ -225,14 +229,10 @@ const getInitialState = () => ({
     metro: [],
     hsr: []
   },
-
-  // 财务记录
-  financialRecords: [],
-
-  financeSelectedDate: getTodayDateStr(),
-  financeFilterType: 'all',
-  financeFilterCategory: 'all',
-
+  financialRecords: JSON.parse(localStorage.getItem('financialRecords')) || [],
+  financeSelectedDate: localStorage.getItem('financeSelectedDate') || getTodayDateStr(),
+  financeFilterType: localStorage.getItem('financeFilterType') || 'all',
+  financeFilterCategory: localStorage.getItem('financeFilterCategory') || 'all',
   // 设置
   settings: {
     soundEnabled: true,
@@ -242,7 +242,6 @@ const getInitialState = () => ({
 
 export default createStore({
   state: getInitialState(),
-
   getters: {
     availableBusDrivers: (state) => {
       return state.employees.busDrivers.filter(d => d.hired && !d.assignedVehicleId)
@@ -310,6 +309,7 @@ export default createStore({
       return highSpeedRailModels.find(m => m.id === modelId)
     },
     getRoute: () => (routeId) => {
+      if (!routeId) return null
       const cityPrefix = routeId.split('_')[0]
       return allRoutes[cityPrefix]?.find(r => r.id === routeId) || null
     },
@@ -339,18 +339,66 @@ export default createStore({
       return state.companyLevel
     }
   },
-
   mutations: {
+    SET_FINANCIAL_RECORDS(state, data) {
+      state.financialRecords = data
+      localStorage.setItem('financialRecords', JSON.stringify(data))
+    },
     SET_FINANCE_SELECTED_DATE(state, date) {
       state.financeSelectedDate = date
+      localStorage.setItem('financeSelectedDate', date)
     },
     SET_FINANCE_FILTER_TYPE(state, type) {
       state.financeFilterType = type
+      localStorage.setItem('financeFilterType', type)
     },
-    SET_FINANCE_FILTER_CATEGORY(state, category) {
-      state.financeFilterCategory = category
+    SET_FINANCE_FILTER_CATEGORY(state, cate) {
+      state.financeFilterCategory = cate
+      localStorage.setItem('financeFilterCategory', cate)
+    },
+    ADD_FINANCIAL_RECORD(state, record) {
+      state.financialRecords.unshift({
+        ...record,
+        timestamp: Date.now()
+      })
+      if (state.financialRecords.length > 1000) {
+        state.financialRecords = state.financialRecords.slice(0, 1000)
+      }
+      localStorage.setItem('financialRecords', JSON.stringify(state.financialRecords))
     },
 
+    SET_BUS_TRAFFIC_LIGHT_TIMER(state, time) {
+      state.busTrafficLightTimer = time;
+    },
+    SET_BUS_WAITING_TRAFFIC_LIGHT(state, value) {
+      state.isBusWaitingTrafficLight = value;
+    },
+    SET_TAXI_TRAFFIC_LIGHT_TIMER(state, time) {
+      state.taxiTrafficLightTimer = time;
+    },
+    SET_TAXI_WAITING_TRAFFIC_LIGHT(state, value) {
+      state.isTaxiWaitingTrafficLight = value;
+    },
+    SET_COACH_TRAFFIC_LIGHT(state, { busId, isWaiting, waitTime }) {
+      const bus = state.buses.find(b => b.id === busId && b.busType === 'coach');
+      if (bus) {
+        bus.isWaitingTrafficLight = isWaiting;
+        bus.trafficLightWaitTime = waitTime;
+      }
+    },
+    SET_COACH_TOLL_GATE(state, { busId, isWaiting, waitTime }) {
+      const bus = state.buses.find(b => b.id === busId && b.busType === 'coach');
+      if (bus) {
+        bus.isWaitingTollGate = isWaiting;
+        bus.tollGateWaitTime = waitTime;
+      }
+    },
+    SET_COACH_SECTION_TYPE(state, { busId, sectionType }) {
+      const bus = state.buses.find(b => b.id === busId && b.busType === 'coach');
+      if (bus) {
+        bus.currentSectionType = sectionType;
+      }
+    },
     ASSIGN_TAXI_DRIVER(state, { taxiId, driverId }) {
       const taxi = state.taxis.find(t => t.id === taxiId);
       if (taxi) taxi.driverId = driverId;
@@ -358,7 +406,6 @@ export default createStore({
       const driver = state.employees.taxiDrivers.find(d => d.id === driverId);
       if (driver) driver.assignedVehicleId = taxiId;
     },
-
     UNASSIGN_TAXI_DRIVER(state, taxiId) {
       const taxi = state.taxis.find(t => t.id === taxiId);
       if (taxi) {
@@ -367,7 +414,6 @@ export default createStore({
         taxi.driverId = null;
       }
     },
-
     SET_INITIAL_STATE(state) {
       Object.assign(state, getInitialState())
     },
@@ -378,15 +424,6 @@ export default createStore({
       state.money += amount
       if (amount > 0) {
         state.experience += Math.floor(amount / 20)
-      }
-    },
-    ADD_FINANCIAL_RECORD(state, record) {
-      state.financialRecords.unshift({
-        ...record,
-        timestamp: Date.now()
-      })
-      if (state.financialRecords.length > 1000) {
-        state.financialRecords = state.financialRecords.slice(0, 1000)
       }
     },
     UPDATE_LAST_SAVE_TIME(state) {
@@ -418,7 +455,6 @@ export default createStore({
         assignedVehicleId: null
       })
     },
-
     UPDATE_EMPLOYEE_ASSIGN(state, { type, employeeId, vehicleId }) {
       const employee = state.employees[type].find(e => e.id === employeeId)
       if (employee) {
@@ -447,9 +483,27 @@ export default createStore({
         ...bus,
         busType: model.busType || 'city'
       }
-      const initData = model.powerType === 'electric'
-        ? { ...initBase, battery: 100, fuel: 0, needsCharge: false, needsRefuel: false }
-        : { ...initBase, fuel: 100, battery: 0, needsRefuel: false, needsCharge: false }
+      
+      let initData = {}
+      if (model.busType === 'coach') {
+        initData = {
+          ...initBase,
+          currentSectionType: 'urban',
+          isWaitingTrafficLight: false,
+          trafficLightWaitTime: 0,
+          isWaitingTollGate: false,
+          tollGateWaitTime: 0,
+          fuel: 100,
+          battery: 0,
+          needsRefuel: false,
+          needsCharge: false
+        }
+      } else {
+        initData = model.powerType === 'electric'
+          ? { ...initBase, battery: 100, fuel: 0, needsCharge: false, needsRefuel: false }
+          : { ...initBase, fuel: 100, battery: 0, needsRefuel: false, needsCharge: false }
+      }
+      
       state.buses.push(initData)
     },
     UPDATE_BUS(state, { id, updates }) {
@@ -458,11 +512,9 @@ export default createStore({
         Object.assign(bus, updates)
       }
     },
-
     ASSIGN_BUS_ROUTE(state, { busId, routeId, driverId, conductorId = null }) {
       const bus = state.buses.find(b => b.id === busId)
       if (!bus) return
-
       const resetState = {
         routeId,
         driverId,
@@ -478,15 +530,21 @@ export default createStore({
         needsRefuel: false,
         needsCleaning: false
       }
-
+      if (bus.busType === 'coach') {
+        Object.assign(resetState, {
+          currentSectionType: 'urban',
+          isWaitingTrafficLight: false,
+          trafficLightWaitTime: 0,
+          isWaitingTollGate: false,
+          tollGateWaitTime: 0
+        })
+      }
       Object.assign(bus, resetState)
-
       this.commit('UPDATE_EMPLOYEE_ASSIGN', {
         type: 'busDrivers',
         employeeId: driverId,
         vehicleId: busId
       })
-
       if (conductorId) {
         this.commit('UPDATE_EMPLOYEE_ASSIGN', {
           type: 'conductors',
@@ -495,13 +553,11 @@ export default createStore({
         })
       }
     },
-
     REMOVE_BUS_ROUTE(state, busId) {
       const bus = state.buses.find(b => b.id === busId)
       if (!bus) return
-
       const { driverId, conductorId } = bus
-      Object.assign(bus, {
+      const resetState = {
         routeId: null,
         driverId: null,
         conductorId: null,
@@ -515,8 +571,17 @@ export default createStore({
         needsCharge: false,
         needsRefuel: false,
         needsCleaning: false
-      })
-
+      }
+      if (bus.busType === 'coach') {
+        Object.assign(resetState, {
+          currentSectionType: 'urban',
+          isWaitingTrafficLight: false,
+          trafficLightWaitTime: 0,
+          isWaitingTollGate: false,
+          tollGateWaitTime: 0
+        })
+      }
+      Object.assign(bus, resetState)
       if (driverId) {
         this.commit('UPDATE_EMPLOYEE_ASSIGN', {
           type: 'busDrivers',
@@ -524,7 +589,6 @@ export default createStore({
           vehicleId: null
         })
       }
-
       if (conductorId) {
         this.commit('UPDATE_EMPLOYEE_ASSIGN', {
           type: 'conductors',
@@ -533,7 +597,6 @@ export default createStore({
         })
       }
     },
-
     ADD_TAXI(state, taxi) {
       const model = taxiModels.find(m => m.id === taxi.modelId)
       const initBase = {
@@ -563,7 +626,6 @@ export default createStore({
         Object.assign(taxi, updates)
       }
     },
-
     ADD_PLANE(state, plane) {
       state.planes.push({
         ...plane,
@@ -581,7 +643,6 @@ export default createStore({
         Object.assign(plane, updates)
       }
     },
-
     ADD_METRO(state, metro) {
       state.metros.push({
         ...metro,
@@ -602,7 +663,6 @@ export default createStore({
         Object.assign(metro, updates)
       }
     },
-
     ADD_HIGH_SPEED_RAIL(state, hsr) {
       state.highSpeedRails.push({
         ...hsr,
@@ -625,7 +685,6 @@ export default createStore({
         Object.assign(hsr, updates)
       }
     },
-
     UPDATE_SHARED_BIKES(state, updates) {
       Object.assign(state.sharedBikes, updates)
     },
@@ -640,7 +699,6 @@ export default createStore({
         r => r.id !== rentalId
       )
     },
-
     ADD_ROUTE(state, { type, routeId }) {
       if (!state.activeRoutes[type].includes(routeId)) {
         state.activeRoutes[type].push(routeId)
@@ -650,7 +708,6 @@ export default createStore({
       state.activeRoutes[type] = state.activeRoutes[type].filter(id => id !== routeId)
     }
   },
-
   actions: {
     assignTaxiDriver({ commit }, { taxiId, driverId }) {
       commit('ASSIGN_TAXI_DRIVER', { taxiId, driverId });
@@ -659,7 +716,6 @@ export default createStore({
     unassignTaxiDriver({ commit }, taxiId) {
       commit('UNASSIGN_TAXI_DRIVER', taxiId);
     },
-
     saveGame({ state, commit }) {
       try {
         const stateToSave = { ...state }
@@ -679,17 +735,18 @@ export default createStore({
           const decrypted = decryptData(saved)
           const offlineTime = Date.now() - decrypted.lastOnlineTime
           let offlineEarnings = { total: 0 }
-
           if (offlineTime > 60000) {
             offlineEarnings = calculateOfflineEarnings(decrypted, offlineTime)
             decrypted.money += offlineEarnings.total
             decrypted.experience += Math.floor(offlineEarnings.total / 20)
           }
-
           decrypted.lastOnlineTime = Date.now()
           commit('LOAD_STATE', decrypted)
+          localStorage.setItem('financialRecords', JSON.stringify(decrypted.financialRecords))
+          localStorage.setItem('financeSelectedDate', decrypted.financeSelectedDate)
+          localStorage.setItem('financeFilterType', decrypted.financeFilterType)
+          localStorage.setItem('financeFilterCategory', decrypted.financeFilterCategory)
           dispatch('checkLevelUp')
-
           if (offlineTime > 60000) {
             commit('ADD_FINANCIAL_RECORD', {
               type: 'income',
@@ -705,6 +762,10 @@ export default createStore({
     },
     resetGame({ commit }) {
       localStorage.removeItem('transportTycoonSave')
+      localStorage.removeItem('financialRecords')
+      localStorage.removeItem('financeSelectedDate')
+      localStorage.removeItem('financeFilterType')
+      localStorage.removeItem('financeFilterCategory')
       commit('SET_INITIAL_STATE')
     },
     checkLevelUp({ state, commit }) {
@@ -712,7 +773,6 @@ export default createStore({
         commit('SET_EXPERIENCE', state.experience - state.experienceToNextLevel)
         commit('SET_COMPANY_LEVEL', state.companyLevel + 1)
         commit('SET_EXPERIENCE_TO_NEXT_LEVEL', Math.floor(state.experienceToNextLevel * 1.7))
-
         const bonus = state.companyLevel * 5000
         commit('ADD_MONEY', bonus)
         commit('ADD_FINANCIAL_RECORD', {
@@ -725,12 +785,125 @@ export default createStore({
     },
     updateGame({ state, commit, getters, dispatch }) {
       commit('UPDATE_LAST_ONLINE_TIME')
-
+      if (!state.isBusWaitingTrafficLight) {
+        if (Math.random() < 0.015) {
+          const waitTime = Math.floor(Math.random() * 81) + 10;
+          commit('SET_BUS_WAITING_TRAFFIC_LIGHT', true);
+          commit('SET_BUS_TRAFFIC_LIGHT_TIMER', waitTime);
+        }
+      } else {
+        if (state.busTrafficLightTimer > 0) {
+          commit('SET_BUS_TRAFFIC_LIGHT_TIMER', state.busTrafficLightTimer - 1);
+        } else {
+          commit('SET_BUS_WAITING_TRAFFIC_LIGHT', false);
+        }
+      }
+      if (!state.isTaxiWaitingTrafficLight) {
+        if (Math.random() < 0.015) {
+          const waitTime = Math.floor(Math.random() * 81) + 10;
+          commit('SET_TAXI_WAITING_TRAFFIC_LIGHT', true);
+          commit('SET_TAXI_TRAFFIC_LIGHT_TIMER', waitTime);
+        }
+      } else {
+        if (state.taxiTrafficLightTimer > 0) {
+          commit('SET_TAXI_TRAFFIC_LIGHT_TIMER', state.taxiTrafficLightTimer - 1);
+        } else {
+          commit('SET_TAXI_WAITING_TRAFFIC_LIGHT', false);
+        }
+      }
+      state.buses.filter(b => b.busType === 'coach' && b.routeId && b.status === 'running').forEach(bus => {
+        const route = getters.getRoute(bus.routeId);
+        if (!route) return;
+        const currentProgress = bus.progress || 0;
+        const sectionType = currentProgress < 15 || currentProgress > 85 ? 'urban' : 'highway';
+        commit('SET_COACH_SECTION_TYPE', { busId: bus.id, sectionType });
+        if (bus.isWaitingTrafficLight) {
+          if (bus.trafficLightWaitTime > 0) {
+            commit('SET_COACH_TRAFFIC_LIGHT', {
+              busId: bus.id,
+              isWaiting: true,
+              waitTime: bus.trafficLightWaitTime - 1
+            });
+          } else {
+            commit('SET_COACH_TRAFFIC_LIGHT', { busId: bus.id, isWaiting: false, waitTime: 0 });
+          }
+          return;
+        }
+        if (bus.isWaitingTollGate) {
+          if (bus.tollGateWaitTime > 0) {
+            commit('SET_COACH_TOLL_GATE', {
+              busId: bus.id,
+              isWaiting: true,
+              waitTime: bus.tollGateWaitTime - 1
+            });
+          } else {
+            commit('SET_COACH_TOLL_GATE', { busId: bus.id, isWaiting: false, waitTime: 0 });
+          }
+          return;
+        }
+        if (sectionType === 'highway') {
+          const isTollGatePoint = Math.abs(currentProgress - 15) < 0.3 || Math.abs(currentProgress - 85) < 0.3;
+          if (isTollGatePoint && Math.random() < 0.8) {
+            const waitTime = Math.floor(Math.random() * 71) + 20;
+            commit('SET_COACH_TOLL_GATE', { busId: bus.id, isWaiting: true, waitTime });
+            return;
+          }
+          const updates = updateVehicleProgress(bus, 'coach', getters);
+          commit('UPDATE_BUS', { id: bus.id, updates });
+          if (updates.earnedMoney) {
+            commit('ADD_MONEY', updates.earnedMoney);
+            commit('ADD_FINANCIAL_RECORD', {
+              type: 'income',
+              category: 'coach',
+              amount: updates.earnedMoney,
+              description: `长途巴士票款收入 - ${route.name}`
+            });
+          }
+          if (updates.fuelCost) {
+            commit('ADD_MONEY', -updates.fuelCost);
+            commit('ADD_FINANCIAL_RECORD', {
+              type: 'expense',
+              category: 'fuel',
+              amount: updates.fuelCost,
+              description: `长途巴士油费 - ${getters.getBusModel(bus.modelId)?.name}`
+            });
+          }
+          return;
+        }
+        if (sectionType === 'urban') {
+          if (Math.random() < 0.004) {
+            const waitTime = Math.floor(Math.random() * 51) + 10;
+            commit('SET_COACH_TRAFFIC_LIGHT', { busId: bus.id, isWaiting: true, waitTime });
+            return;
+          }
+          const updates = updateVehicleProgress(bus, 'coach', getters);
+          commit('UPDATE_BUS', { id: bus.id, updates });
+          if (updates.earnedMoney) {
+            commit('ADD_MONEY', updates.earnedMoney);
+            commit('ADD_FINANCIAL_RECORD', {
+              type: 'income',
+              category: 'coach',
+              amount: updates.earnedMoney,
+              description: `长途巴士票款收入 - ${route.name}`
+            });
+          }
+          if (updates.fuelCost) {
+            commit('ADD_MONEY', -updates.fuelCost);
+            commit('ADD_FINANCIAL_RECORD', {
+              type: 'expense',
+              category: 'fuel',
+              amount: updates.fuelCost,
+              description: `长途巴士油费 - ${getters.getBusModel(bus.modelId)?.name}`
+            });
+          }
+        }
+      });
       state.buses.filter(b => b.busType === 'city' && b.routeId).forEach(bus => {
+        if (state.isBusWaitingTrafficLight) return;
+        
         if ((bus.status === 'running' || bus.status === 'stopped') && bus.routeId) {
           const updates = updateVehicleProgress(bus, 'bus', getters)
           commit('UPDATE_BUS', { id: bus.id, updates })
-
           if (updates.earnedMoney) {
             commit('ADD_MONEY', updates.earnedMoney)
             commit('ADD_FINANCIAL_RECORD', {
@@ -740,7 +913,6 @@ export default createStore({
               description: `巴士线路票款收入 - ${getters.getRoute(bus.routeId)?.name || '未知线路'}`
             })
           }
-
           if (updates.electricityCost) {
             commit('ADD_MONEY', -updates.electricityCost)
             commit('ADD_FINANCIAL_RECORD', {
@@ -752,48 +924,11 @@ export default createStore({
           }
         }
       })
-
-      state.buses.filter(b => b.busType === 'coach' && b.routeId).forEach(bus => {
-        if ((bus.status === 'running' || bus.status === 'stopped') && bus.routeId) {
-          const updates = updateVehicleProgress(bus, 'coach', getters)
-          commit('UPDATE_BUS', { id: bus.id, updates })
-
-          if (updates.earnedMoney) {
-            commit('ADD_MONEY', updates.earnedMoney)
-            commit('ADD_FINANCIAL_RECORD', {
-              type: 'income',
-              category: 'coach',
-              amount: updates.earnedMoney,
-              description: `长途巴士票款收入 - ${getters.getRoute(bus.routeId)?.name || '未知线路'}`
-            })
-          }
-
-          if (updates.electricityCost && bus.powerType === 'electric') {
-            commit('ADD_MONEY', -updates.electricityCost)
-            commit('ADD_FINANCIAL_RECORD', {
-              type: 'expense',
-              category: 'electricity',
-              amount: updates.electricityCost,
-              description: `长途巴士运营电费 - ${getters.getBusModel(bus.modelId)?.name}`
-            })
-          }
-          if (updates.fuelCost && bus.powerType === 'fuel') {
-            commit('ADD_MONEY', -updates.fuelCost)
-            commit('ADD_FINANCIAL_RECORD', {
-              type: 'expense',
-              category: 'fuel',
-              amount: updates.fuelCost,
-              description: `长途巴士运营油费 - ${getters.getBusModel(bus.modelId)?.name}`
-            })
-          }
-        }
-      })
-
       state.taxis.forEach(taxi => {
+        if (state.isTaxiWaitingTrafficLight) return;
         if (taxi.driverId && (taxi.status === 'idle' || taxi.status === 'hasPassenger')) {
           const updates = updateTaxiProgress(taxi, getters)
           commit('UPDATE_TAXI', { id: taxi.id, updates })
-
           if (updates.earnedMoney) {
             commit('ADD_MONEY', updates.earnedMoney)
             commit('ADD_FINANCIAL_RECORD', {
@@ -803,7 +938,6 @@ export default createStore({
               description: `的士运营车费收入`
             })
           }
-
           if (updates.electricityCost) {
             commit('ADD_MONEY', -updates.electricityCost)
             commit('ADD_FINANCIAL_RECORD', {
@@ -815,13 +949,11 @@ export default createStore({
           }
         }
       })
-
       if (state.companyLevel >= 6) {
         state.planes.forEach(plane => {
           if (plane.flightStage === 'flying' && plane.routeId) {
             const updates = updateVehicleProgress(plane, 'plane', getters)
             commit('UPDATE_PLANE', { id: plane.id, updates })
-
             if (updates.earnedMoney) {
               commit('ADD_MONEY', updates.earnedMoney)
               commit('ADD_FINANCIAL_RECORD', {
@@ -834,13 +966,11 @@ export default createStore({
           }
         })
       }
-
       if (state.companyLevel >= 10) {
         state.metros.forEach(metro => {
           if (metro.status === 'running' && metro.routeId) {
             const updates = updateVehicleProgress(metro, 'metro', getters)
             commit('UPDATE_METRO', { id: metro.id, updates })
-
             if (updates.arrived && updates.electricityCost && updates.electricityCost > 0) {
               commit('ADD_MONEY', -updates.electricityCost)
               commit('ADD_FINANCIAL_RECORD', {
@@ -850,7 +980,6 @@ export default createStore({
                 description: `地铁运营电费 - ${getters.getMetroModel(metro.modelId).name}`
               })
             }
-
             if (updates.earnedMoney) {
               commit('ADD_MONEY', updates.earnedMoney)
               commit('ADD_FINANCIAL_RECORD', {
@@ -863,13 +992,11 @@ export default createStore({
           }
         })
       }
-
       if (state.companyLevel >= 20) {
         state.highSpeedRails.forEach(hsr => {
           if (hsr.status === 'running' && hsr.routeId) {
             const updates = updateVehicleProgress(hsr, 'hsr', getters)
             commit('UPDATE_HIGH_SPEED_RAIL', { id: hsr.id, updates })
-
             if (updates.arrived && updates.electricityCost && updates.electricityCost > 0) {
               commit('ADD_MONEY', -updates.electricityCost)
               commit('ADD_FINANCIAL_RECORD', {
@@ -879,7 +1006,6 @@ export default createStore({
                 description: `高铁运营电费 - ${getters.getHSRModel(hsr.modelId).name}`
               })
             }
-
             if (updates.earnedMoney) {
               commit('ADD_MONEY', updates.earnedMoney)
               commit('ADD_FINANCIAL_RECORD', {
@@ -892,14 +1018,12 @@ export default createStore({
           }
         })
       }
-
       if (Math.random() < 0.05 && state.sharedBikes.totalBikes > state.sharedBikes.activeRentals.length) {
         const rentalHours = Math.ceil(Math.random() * 3)
         const availableBikes = state.sharedBikes.totalBikes - state.sharedBikes.activeRentals.length
         if (availableBikes > 0) {
           const cityRoads = getters.getCityRoads(state.unlockedCities[0])
           const randomRoad = cityRoads[Math.floor(Math.random() * cityRoads.length)] || '城市道路'
-
           const rental = {
             startTime: Date.now(),
             hours: rentalHours,
@@ -909,7 +1033,6 @@ export default createStore({
           commit('ADD_BIKE_RENTAL', rental)
         }
       }
-
       const now = Date.now()
       state.sharedBikes.activeRentals.forEach(rental => {
         if (now >= rental.startTime + rental.hours * 3600000) {
@@ -924,7 +1047,6 @@ export default createStore({
           commit('REMOVE_BIKE_RENTAL', rental.id)
         }
       })
-
       if (Math.random() < 0.005) {
         let totalSalary = 0
         Object.values(state.employees).forEach(type => {
@@ -934,7 +1056,6 @@ export default createStore({
             }
           })
         })
-
         if (totalSalary > 0) {
           commit('ADD_MONEY', -totalSalary)
           commit('ADD_FINANCIAL_RECORD', {
@@ -945,10 +1066,8 @@ export default createStore({
           })
         }
       }
-
       dispatch('checkLevelUp')
     },
-
     refuelBus({ state, commit, getters }, busId) {
       const bus = state.buses.find(b => b.id === busId)
       if (bus && bus.powerType === 'fuel' && bus.isAtTerminal && bus.status === 'stopped' && (bus.busType === 'city' || bus.busType === 'coach')) {
@@ -968,7 +1087,6 @@ export default createStore({
       }
       return false
     },
-
     chargeBus({ state, commit, getters }, busId) {
       const bus = state.buses.find(b => b.id === busId)
       if (bus && bus.powerType === 'electric' && bus.isAtTerminal && bus.status === 'stopped' && (bus.busType === 'city' || bus.busType === 'coach')) {
@@ -1026,7 +1144,6 @@ export default createStore({
       }
       return false
     },
-
     chargeTaxi({ state, commit, getters }, taxiId) {
       const taxi = state.taxis.find(t => t.id === taxiId)
       if (taxi && taxi.powerType === 'electric') {
@@ -1046,7 +1163,6 @@ export default createStore({
       }
       return false
     },
-
     cleanTaxi({ state, commit, getters }, taxiId) {
       const taxi = state.taxis.find(t => t.id === taxiId)
       if (taxi) {
@@ -1066,7 +1182,6 @@ export default createStore({
       }
       return false
     },
-
     refuelPlane({ state, commit, getters }, planeId) {
       if (state.companyLevel < 6) return false
       const plane = state.planes.find(p => p.id === planeId)
@@ -1087,7 +1202,6 @@ export default createStore({
       }
       return false
     },
-
     cleanPlane({ state, commit, getters }, planeId) {
       if (state.companyLevel < 6) return false
       const plane = state.planes.find(p => p.id === planeId)
@@ -1108,7 +1222,6 @@ export default createStore({
       }
       return false
     },
-
     supplyPlane({ state, commit, getters }, planeId) {
       if (state.companyLevel < 6) return false
       const plane = state.planes.find(p => p.id === planeId)
@@ -1129,8 +1242,6 @@ export default createStore({
       }
       return false
     },
-
-
     buyBus({ state, commit, getters }, modelId) {
       const model = getters.getBusModel(modelId)
       if (model && state.money >= model.price) {
@@ -1146,7 +1257,6 @@ export default createStore({
       }
       return false
     },
-
     buyTaxi({ state, commit, getters }, modelId) {
       const model = getters.getTaxiModel(modelId)
       if (model && state.money >= model.price) {
@@ -1162,7 +1272,6 @@ export default createStore({
       }
       return false
     },
-
     buyPlane({ state, commit, getters }, modelId) {
       if (state.companyLevel < 6) return false
       const model = getters.getPlaneModel(modelId)
@@ -1192,7 +1301,6 @@ export default createStore({
       }
       return false
     },
-
     buyMetro({ state, commit, getters }, modelId) {
       if (state.companyLevel < 10) return false
       const model = getters.getMetroModel(modelId)
@@ -1219,7 +1327,6 @@ export default createStore({
       }
       return false
     },
-
     buyHSR({ state, commit, getters }, modelId) {
       if (state.companyLevel < 20) return false
       const model = getters.getHSRModel(modelId)
@@ -1248,8 +1355,6 @@ export default createStore({
       }
       return false
     },
-
-
     hireEmployee({ state, commit }, { type, name, salary }) {
       const costs = {
         busDrivers: 8000,
@@ -1279,7 +1384,6 @@ export default createStore({
       }
       return false
     },
-
     unlockCity({ state, commit }, cityId) {
       const cityInfo = cities.find(c => c.id === cityId)
       if (cityInfo && !state.unlockedCities.includes(cityId)) {
@@ -1297,7 +1401,6 @@ export default createStore({
       }
       return false
     },
-
     buySharedBikes({ state, commit }, quantity) {
       const costPerBike = 800
       const totalCost = quantity * costPerBike
@@ -1316,7 +1419,6 @@ export default createStore({
       }
       return false
     },
-
     upgradeVehicle({ state, commit, getters }, { vehicleId, type, upgradeType }) {
       const upgradeCosts = {
         entertainment: 50000,
@@ -1324,10 +1426,7 @@ export default createStore({
       }
       const cost = upgradeCosts[upgradeType]
       if (!cost || state.money < cost) return false
-
-      // 修复：逻辑判断错误，原判断写反导致巴士升级功能失效
-      if (['city', 'coach'].includes(type) && type !== 'bus') return false
-
+      if (!['city', 'coach', 'taxi', 'plane', 'metro', 'hsr'].includes(type)) return false
       let vehicle, updateFn
       switch (type) {
         case 'coach':
@@ -1358,7 +1457,6 @@ export default createStore({
         default:
           return false
       }
-
       if (vehicle) {
         commit('ADD_MONEY', -cost)
         const updates = {}
@@ -1374,37 +1472,30 @@ export default createStore({
       }
       return false
     },
-
     assignBusRoute({ state, commit, getters }, { busId, routeId, driverId, conductorId = null }) {
       const bus = state.buses.find(b => b.id === busId)
       const route = getters.getRoute(routeId)
-
       if (!bus || !route) {
         console.error('分配失败：车辆或线路不存在')
         return false
       }
-
       if (!getters.activeRoutes(route.type).includes(routeId)) {
-        console.error('分配失败：线路未激活')
+        console.error('分配失败：线路未激活', route.id)
         return false
       }
-
       if ((bus.busType === 'city' && route.type !== 'bus') || (bus.busType === 'coach' && route.type !== 'coach')) {
         console.error('分配失败：车辆类型与线路类型不匹配')
         return false
       }
-
       if (bus.busType === 'coach' && !conductorId) {
         console.error('分配失败：长途巴士必须指定售票员')
         return false
       }
-
       const driver = state.employees.busDrivers.find(d => d.id === driverId)
       if (driver && driver.assignedVehicleId) {
         console.error('分配失败：该司机已分配给其他车辆')
         return false
       }
-
       if (conductorId) {
         const conductor = state.employees.conductors.find(c => c.id === conductorId)
         if (conductor && conductor.assignedVehicleId) {
@@ -1412,7 +1503,6 @@ export default createStore({
           return false
         }
       }
-
       commit('ASSIGN_BUS_ROUTE', { busId, routeId, driverId, conductorId })
       return true
     },
@@ -1421,13 +1511,11 @@ export default createStore({
       commit('REMOVE_BUS_ROUTE', busId)
       return true
     },
-
     createRoute({ state, commit, getters }, route) {
       if (getters.activeRoutes(route.type).includes(route.id)) {
         console.warn('创建失败：线路已激活', route.id)
         return false
       }
-
       if (route.requiredLevel > state.companyLevel) {
         console.warn('创建失败：公司等级不足', {
           required: route.requiredLevel,
@@ -1435,7 +1523,6 @@ export default createStore({
         })
         return false
       }
-
       commit('ADD_ROUTE', { type: route.type, routeId: route.id })
       console.log('线路创建成功', route.id)
       return true

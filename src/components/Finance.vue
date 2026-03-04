@@ -99,18 +99,15 @@ const filterCategory = computed({
 get: () => store.state.financeFilterCategory,
 set: (val) => store.commit('SET_FINANCE_FILTER_CATEGORY', val)
 })
-const financialRecords = computed(() => store.state.financialRecords || []) // 兜底空数组，避免undefined
-
+const financialRecords = computed(() => store.state.financialRecords || [])
 const initToday = () => {
   const d = new Date()
   todayDate.value = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
-
 const getDateStr = (timestamp) => {
   const d = new Date(timestamp)
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
-
 const MIN_VALID_AMOUNT = 1
 const isValidAmount = (amount) => {
   if (amount === undefined || amount === null) return false
@@ -118,7 +115,6 @@ const isValidAmount = (amount) => {
   const valid = !isNaN(num) && isFinite(num) && num >= MIN_VALID_AMOUNT
   return valid
 }
-
 const totalIncome = computed(() => {
   return financialRecords.value
   .filter(r => {
@@ -129,7 +125,6 @@ const totalIncome = computed(() => {
   })
   .reduce((sum, r) => sum + Number(r.amount), 0)
 })
-
 const totalExpense = computed(() => {
   return financialRecords.value
   .filter(r => {
@@ -140,9 +135,7 @@ const totalExpense = computed(() => {
   })
   .reduce((sum, r) => sum + Number(r.amount), 0)
 })
-
 const netProfit = computed(() => totalIncome.value - totalExpense.value)
-
 const filteredRecords = computed(() => {
   const validRecords = financialRecords.value.filter(r => typeof r === 'object' && r !== null)
   const dateFiltered = validRecords.filter(r => getDateStr(r.timestamp) === selectedDate.value)
@@ -152,15 +145,12 @@ const filteredRecords = computed(() => {
     const amountValid = isValidAmount(r.amount)
     return typeMatch && categoryMatch && amountValid
   })
-
   const zeroAmountRecords = dateFiltered.filter(r => !isValidAmount(r.amount))
   if (zeroAmountRecords.length > 0 && process.env.NODE_ENV === 'development') {
     console.log(`【${selectedDate.value}】过滤的无效金额记录数：`, zeroAmountRecords.length)
   }
-
   return finalFiltered
 })
-
 const formatMoney = (amount) => {
   const num = Number(amount)
   if (isNaN(num) || num < MIN_VALID_AMOUNT) return '0'
@@ -172,12 +162,10 @@ const formatMoney = (amount) => {
   }
   return Math.floor(num).toLocaleString()
 }
-
 const formatTime = (timestamp) => {
   const date = new Date(timestamp)
   return date.toLocaleString('zh-CN')
 }
-
 const getCategoryIcon = (category) => {
   const icons = {
     bus: '🚌',
@@ -203,6 +191,9 @@ const getCategoryIcon = (category) => {
 
 let refreshTimer = null
 const startAutoRefresh = () => {
+  if (refreshTimer) {
+    clearInterval(refreshTimer)
+  }
   refreshTimer = setInterval(() => {
     console.log('财务报表自动刷新（无数据篡改）')
   }, 5000)
@@ -212,11 +203,16 @@ onMounted(() => {
   initToday()
   startAutoRefresh()
 })
+
 onActivated(() => {
   initToday()
+  startAutoRefresh()
+  store.state.financialRecords = [...store.state.financialRecords]
 })
+
 onUnmounted(() => {
-  if (refreshTimer) clearInterval(refreshTimer)
+  // 不清除定时器，防止切走就停
+  // if (refreshTimer) clearInterval(refreshTimer)
 })
 
 return {

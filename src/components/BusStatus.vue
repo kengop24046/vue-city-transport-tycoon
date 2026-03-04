@@ -12,7 +12,6 @@
           {{ getBusStatusText(bus) }}
         </span>
       </div>
-
       <div class="bus-info">
         <div class="info-row">
           <span class="info-label">🗺️ 线路</span>
@@ -37,6 +36,11 @@
           <span class="info-label">🏁 下一站</span>
           <span class="info-value">{{ getNextStop(bus) }}</span>
         </div>
+        
+        <div v-if="isBusWaitingTrafficLight" class="traffic-light-warning">
+          🚦 正在等红绿灯：{{ busTrafficLightTimer }} 秒
+        </div>
+        
         <div class="info-row" v-if="bus.status === 'stopped'">
           <span class="info-label">⏱️ 发车倒计时</span>
           <span class="info-value countdown" :class="{terminal: bus.isAtTerminal}">
@@ -61,7 +65,6 @@
           </div>
         </div>
       </div>
-
       <div class="resource-bars">
         <div class="resource-bar" v-if="bus.powerType === 'electric'">
           <span class="resource-label">🔋 电量</span>
@@ -79,7 +82,6 @@
           </button>
           <span v-else-if="bus.needsCharge" class="hint-text">🔌 需到总站充电</span>
         </div>
-
         <div class="resource-bar" v-else-if="bus.powerType === 'fuel'">
           <span class="resource-label"> 油量</span>
           <div class="bar-container">
@@ -95,7 +97,6 @@
           </button>
           <span v-else-if="bus.needsRefuel" class="hint-text">需到总站加油</span>
         </div>
-
         <div class="resource-bar">
           <span class="resource-label">🧹 清洁度</span>
           <div class="bar-container">
@@ -112,7 +113,6 @@
           <span v-else-if="bus.needsCleaning" class="hint-text">需到总站清洁</span>
         </div>
       </div>
-
       <div class="route-operation">
         <div v-if="!bus.routeId" class="assign-section">
           <div class="assign-form">
@@ -151,7 +151,6 @@
           </button>
         </div>
       </div>
-
       <div class="bus-upgrades">
         <span class="upgrade-tag disabled">娱乐系统</span>
         <span class="upgrade-tag disabled">WiFi</span>
@@ -169,54 +168,48 @@ export default {
   name: 'BusStatus',
   setup() {
     const store = useStore()
+    
+    const isBusWaitingTrafficLight = computed(() => store.state.isBusWaitingTrafficLight);
+    const busTrafficLightTimer = computed(() => store.state.busTrafficLightTimer);
+    
     const assignForm = reactive({})
     const buses = computed(() => store.state.buses.filter(bus => bus.busType === 'city'))
     const activeRoutes = computed(() => store.state.activeRoutes)
     const employees = computed(() => store.state.employees)
-
     const availableDrivers = computed(() => {
       return store.getters.availableBusDrivers
     })
-
     const availableConductors = computed(() => {
       return store.getters.availableConductors
     })
-
     const getAvailableRoutes = (busType) => {
       const routeType = busType === 'city' ? 'bus' : 'coach'
       const routeIds = activeRoutes.value[routeType] || []
       return routeIds.map(id => store.getters.getRoute(id)).filter(Boolean)
     }
-
     const getBusModel = (modelId) => {
       return store.getters.getBusModel(modelId)
     }
-
     const getBusCanOperate = (bus) => {
       return store.getters.getBusCanOperate(bus)
     }
-
     const getRoute = (routeId) => {
       if (!routeId) return null
       return store.getters.getRoute(routeId)
     }
-
     const getRouteName = (routeId) => {
       if (!routeId) return '未分配线路'
       const route = getRoute(routeId)
       return route?.name || '未知线路'
     }
-
     const getDriverName = (driverId) => {
       const driver = employees.value.busDrivers.find(d => d.id === driverId)
       return driver?.name || '未知司机'
     }
-
     const getConductorName = (conductorId) => {
       const conductor = employees.value.conductors.find(c => c.id === conductorId)
       return conductor?.name || '未知售票员'
     }
-
     const getCurrentStop = (bus) => {
       if (!bus.routeId) return '-'
       const route = getRoute(bus.routeId)
@@ -224,14 +217,12 @@ export default {
       const stops = bus.direction === 'outbound' ? route.stops.outbound : route.stops.inbound
       return stops[bus.currentStopIndex] || '-'
     }
-
     const getNextStop = (bus) => {
       if (!bus.routeId) return '-'
       const route = getRoute(bus.routeId)
       if (!route) return '-'
       const currentStops = bus.direction === 'outbound' ? route.stops.outbound : route.stops.inbound
       const currentIndex = bus.currentStopIndex
-
       switch (bus.status) {
         case 'running':
           return currentStops[currentIndex] || '-'
@@ -248,7 +239,6 @@ export default {
           return '-'
       }
     }
-
     const getBusStatusText = (bus) => {
       const statusMap = {
         running: '🚌 运行中',
@@ -257,24 +247,19 @@ export default {
       }
       return statusMap[bus.status] || '未知状态'
     }
-
     const refuelBus = (busId) => {
       store.dispatch('refuelBus', busId)
     }
-
     const chargeBus = (busId) => {
       store.dispatch('chargeBus', busId)
     }
-
     const cleanBus = (busId) => {
       store.dispatch('cleanBus', busId)
     }
-
     const canAssignBus = (busId) => {
       const form = assignForm[busId]
       return !!form?.routeId && !!form?.driverId
     }
-
     const assignBusRoute = (busId) => {
       const form = assignForm[busId]
       store.dispatch('assignBusRoute', {
@@ -291,11 +276,9 @@ export default {
         }
       })
     }
-
     const removeBusRoute = (busId) => {
       store.dispatch('removeBusRoute', busId)
     }
-
     watch(buses, (newBuses) => {
       newBuses.forEach(bus => {
         if (!assignForm[bus.id]) {
@@ -306,8 +289,10 @@ export default {
         }
       })
     }, { immediate: true })
-
+    
     return {
+      isBusWaitingTrafficLight,
+      busTrafficLightTimer,
       buses,
       availableDrivers,
       availableConductors,
@@ -344,14 +329,12 @@ export default {
   font-size: 24px;
   text-align: center;
 }
-
 .empty-state {
   text-align: center;
   padding: 60px 20px;
   color: #888;
   font-size: 18px;
 }
-
 .bus-list {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
@@ -360,7 +343,6 @@ export default {
   justify-content: center;
   box-sizing: border-box;
 }
-
 .bus-card {
   background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
   border-radius: 15px;
@@ -369,49 +351,41 @@ export default {
   width: 100%;
   box-sizing: border-box;
 }
-
 .bus-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
   margin-bottom: 15px;
 }
-
 .bus-header h3 {
   margin: 0;
   color: #333;
   font-size: 18px;
 }
-
 .status-badge {
   padding: 5px 12px;
   border-radius: 15px;
   font-size: 12px;
   font-weight: 500;
 }
-
 .status-badge.running {
   background: #4caf50;
   color: white;
 }
-
 .status-badge.stopped {
   background: #2196f3;
   color: white;
 }
-
 .status-badge.idle {
   background: #ff9800;
   color: white;
 }
-
 .bus-info {
   background: white;
   border-radius: 10px;
   padding: 15px;
   margin-bottom: 15px;
 }
-
 .info-row {
   display: flex;
   justify-content: space-between;
@@ -421,16 +395,13 @@ export default {
   flex-wrap: wrap;
   gap: 5px;
 }
-
 .info-label {
   color: #666;
 }
-
 .info-value {
   color: #333;
   font-weight: 500;
 }
-
 .info-value.arrived {
   color: #f5576c;
   font-weight: bold;
@@ -439,7 +410,6 @@ export default {
   gap: 5px;
   flex-wrap: wrap;
 }
-
 .terminal-tag {
   font-size: 11px;
   background: #f5576c;
@@ -449,7 +419,6 @@ export default {
   font-weight: normal;
   white-space: nowrap;
 }
-
 .info-value.countdown {
   color: #f5576c;
   font-weight: bold;
@@ -458,49 +427,41 @@ export default {
   gap: 5px;
   flex-wrap: wrap;
 }
-
 .info-value.countdown.terminal {
   color: #d32f2f;
 }
-
 .terminal-hint {
   font-size: 11px;
   font-weight: normal;
   opacity: 0.8;
   white-space: nowrap;
 }
-
 .progress-section {
   margin: 15px 0 0 0;
 }
-
 .progress-label {
   display: flex;
   justify-content: space-between;
   font-size: 14px;
   margin-bottom: 5px;
 }
-
 .progress-bar {
   height: 10px;
   background: #e0e0e0;
   border-radius: 5px;
   overflow: hidden;
 }
-
 .progress-fill {
   height: 100%;
   background: linear-gradient(90deg, #4caf50, #8bc34a);
   transition: width 0.3s ease;
 }
-
 .resource-bars {
   display: flex;
   flex-direction: column;
   gap: 15px;
   margin: 15px 0;
 }
-
 .resource-bar {
   display: flex;
   align-items: center;
@@ -508,14 +469,12 @@ export default {
   flex-wrap: wrap;
   justify-content: flex-start;
 }
-
 .resource-label {
   font-size: 12px;
   color: #666;
   width: 70px;
   flex-shrink: 0;
 }
-
 .bar-container {
   flex: 1;
   height: 8px;
@@ -524,24 +483,19 @@ export default {
   overflow: hidden;
   min-width: 80px;
 }
-
 .bar-fill {
   height: 100%;
   transition: width 0.3s ease;
 }
-
 .bar-fill.fuel {
   background: linear-gradient(90deg, #ff9800, #ffc107);
 }
-
 .bar-fill.battery {
   background: linear-gradient(90deg, #2196f3, #03a9f4);
 }
-
 .bar-fill.cleanliness {
   background: linear-gradient(90deg, #00bcd4, #4dd0e1);
 }
-
 .resource-value {
   font-size: 12px;
   color: #333;
@@ -549,7 +503,6 @@ export default {
   text-align: right;
   flex-shrink: 0;
 }
-
 .hint-text {
   font-size: 11px;
   color: #f5576c;
@@ -557,7 +510,6 @@ export default {
   text-align: center;
   flex-shrink: 0;
 }
-
 .action-btn {
   padding: 8px 12px;
   border: none;
@@ -568,41 +520,34 @@ export default {
   white-space: nowrap;
   flex-shrink: 0;
 }
-
 .action-btn.refuel {
   background: linear-gradient(135deg, #ff9800, #ffc107);
   color: white;
 }
-
 .action-btn.charge {
   background: linear-gradient(135deg, #2196f3, #03a9f4);
   color: white;
 }
-
 .action-btn.clean {
   background: linear-gradient(135deg, #00bcd4, #4dd0e1);
   color: white;
 }
-
 .action-btn:hover {
   transform: translateY(-2px);
   box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
 }
-
 .route-operation {
   margin: 15px 0;
   padding: 12px;
   background: white;
   border-radius: 10px;
 }
-
 .assign-form {
   display: flex;
   align-items: center;
   gap: 10px;
   flex-wrap: wrap;
 }
-
 .select-input {
   padding: 8px 10px;
   border: 1px solid #e0e0e0;
@@ -610,12 +555,10 @@ export default {
   font-size: 12px;
   min-width: 100px;
 }
-
 .select-input.full-width {
   flex: 1;
   min-width: 150px;
 }
-
 .assign-btn {
   padding: 8px 16px;
   border: none;
@@ -626,22 +569,18 @@ export default {
   cursor: pointer;
   transition: all 0.3s ease;
 }
-
 .assign-btn:hover:not(:disabled) {
   transform: translateY(-2px);
   box-shadow: 0 4px 10px rgba(76, 175, 80, 0.3);
 }
-
 .assign-btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
 }
-
 .remove-section {
   display: flex;
   justify-content: center;
 }
-
 .remove-btn {
   padding: 8px 20px;
   border: none;
@@ -653,18 +592,15 @@ export default {
   transition: all 0.3s ease;
   width: 100%;
 }
-
 .remove-btn:hover {
   transform: translateY(-2px);
   box-shadow: 0 4px 10px rgba(245, 87, 108, 0.3);
 }
-
 .bus-upgrades {
   display: flex;
   gap: 10px;
   margin-top: 15px;
 }
-
 .upgrade-tag {
   padding: 5px 10px;
   border-radius: 12px;
@@ -672,15 +608,24 @@ export default {
   background: #e0e0e0;
   color: #888;
 }
-
 .upgrade-tag.disabled {
   opacity: 0.5;
   cursor: not-allowed;
 }
-
 .upgrade-tag.active {
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: white;
+}
+
+.traffic-light-warning {
+  background: #fff3cd;
+  color: #856404;
+  padding: 6px 12px;
+  border-radius: 6px;
+  margin: 8px 0;
+  font-weight: bold;
+  text-align: center;
+  font-size: 14px;
 }
 
 @media screen and (max-width: 400px) {
